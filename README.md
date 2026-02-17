@@ -56,12 +56,22 @@ npm run dev
 
 ### 3. Tabellen in Supabase (einmalig)
 
-Vercel kann die direkte DB-URL (Port 5432) oft nicht erreichen. **Tabelle einmalig selbst anlegen:**
-
 1. [Supabase](https://supabase.com) → dein Projekt → **SQL Editor** → **New query**
-2. Inhalt der Datei **`supabase-init.sql`** aus dem Repo kopieren, einfügen, **Run** klicken.
+2. Inhalt von **`supabase-init.sql`** kopieren, einfügen, **Run** klicken.
 
-Damit ist die Tabelle `Product` angelegt; die App (lokal und auf Vercel) kann Heimtests speichern. Optional: lokal `npm run db:seed` für Beispiel-Heimtests (mit derselben `DATABASE_URL`).
+### 4. DATABASE_URL auf Vercel: Pooler nutzen
+
+Die **direkte** Verbindung (Port 5432) ist von Vercel aus oft nicht erreichbar. In Vercel **immer die Pooler-URL** verwenden:
+
+1. Supabase → **Settings** → **Database**
+2. Unter **Connection string** die **„URI“** wählen
+3. **Mode: Transaction** (oder Session), **Port: 6543** – dann erscheint ein Host wie `aws-0-eu-central-1.pooler.supabase.com`
+4. Diese komplette URI kopieren (mit Passwort) und in Vercel als **DATABASE_URL** eintragen.
+
+Beispiel-Format:  
+`postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true`
+
+Ohne die Pooler-URL bleiben Produkte leer und das Anlegen von Heimtests schlägt fehl.
 
 ## Ablauf
 
