@@ -518,7 +518,6 @@ export default function Home() {
               <button
                 type="button"
                 onClick={async () => {
-                  if (!productId) return;
                   setSuggestLoading(true);
                   setSuggestError(null);
                   setSuggestResult(null);
@@ -527,7 +526,7 @@ export default function Home() {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        productId,
+                        productId: productId || undefined,
                         context: ideaContext.trim() || undefined,
                         medium,
                       }),
@@ -547,7 +546,7 @@ export default function Home() {
                     setSuggestLoading(false);
                   }
                 }}
-                disabled={suggestLoading || !productId}
+                disabled={suggestLoading}
                 className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
               >
                 {suggestLoading ? "Ideen werden erstellt …" : "Ideen & Hooks vorschlagen"}

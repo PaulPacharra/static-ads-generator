@@ -27,21 +27,26 @@ export async function POST(request: Request) {
       medium?: string;
     };
 
-    if (!productId?.trim()) {
-      return NextResponse.json(
-        { error: "Bitte einen Heimtest auswählen." },
-        { status: 400 }
-      );
-    }
-
-    const product = await prisma.product.findUnique({
-      where: { id: productId.trim() },
-    });
-    if (!product) {
-      return NextResponse.json(
-        { error: "Produkt nicht gefunden." },
-        { status: 404 }
-      );
+    let productBlock: string;
+    if (productId?.trim()) {
+      const product = await prisma.product.findUnique({
+        where: { id: productId.trim() },
+      });
+      if (!product) {
+        return NextResponse.json(
+          { error: "Produkt nicht gefunden." },
+          { status: 404 }
+        );
+      }
+      productBlock = [
+        `Produkt: ${product.name} (Slug: ${product.slug}).`,
+        product.description && `Beschreibung/Nutzen: ${product.description}`,
+        product.kitInfo && `Kit-Inhalt: ${product.kitInfo}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    } else {
+      productBlock = "Produkt: Allgemeiner Heimtest (at-home health test). Kein konkretes Produkt ausgewählt – generische Ideen für Werbetexte.";
     }
 
     const contextText =
@@ -54,14 +59,6 @@ export async function POST(request: Request) {
         : medium === "meta"
           ? " Die Anzeigen sind für Meta (Facebook & Instagram Feed und Stories)."
           : " Die Anzeigen können für Google und Meta genutzt werden.";
-
-    const productBlock = [
-      `Produkt: ${product.name} (Slug: ${product.slug}).`,
-      product.description && `Beschreibung/Nutzen: ${product.description}`,
-      product.kitInfo && `Kit-Inhalt: ${product.kitInfo}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
 
     const systemPrompt = `Du bist Werbetexter für seriöse Heimtests (z.B. Vitamin D, Allergie). Deine Texte sind auf Deutsch, werblich aber seriös, ohne Heil- oder Diagnoseversprechen. Ziel: Anzeigen für Google Ads und Meta (Facebook/Instagram). Wichtig: Die Zielgruppe wird immer geduzt – alle Texte in Du-Form („du“, „dein“, „dir“), niemals in Sie-Form.`;
 
