@@ -19,6 +19,9 @@ const MAX_EXTRA_LENGTH = 300;
 /** Steuert, ob eine Person oder ein Paar in der Anzeige gezeigt wird. */
 export type IncludePersonOption = "none" | "person" | "couple";
 
+/** Stil der Anzeige: Standard = Produktfokus; Lifestyle = Person, Platz für Headline/Features. */
+export type AdStyleOption = "standard" | "lifestyle";
+
 function getPersonInstruction(include: IncludePersonOption): string {
   if (include === "none") return "";
   if (include === "person")
@@ -28,10 +31,23 @@ function getPersonInstruction(include: IncludePersonOption): string {
   return "";
 }
 
+/** Anweisung für Lifestyle-Anzeigen (Person, Headline-Bereich oben, Feature-Bereich unten). */
+const LIFESTYLE_COMPOSITION = `
+
+7. LIFESTYLE AD LAYOUT (match this style exactly):
+- Include ONE person in an aspirational, relatable setting: e.g. on a balcony, by a window, or in a bright indoor/outdoor space. Person from chest up or waist up, natural pose (e.g. hand on railing), serene and hopeful expression. Warm, soft lighting (golden hour or bright daylight). Light clothing, professional-casual. Slight bokeh or soft background (sky, trees, city, or room).
+- COMPOSITION FOR TEXT OVERLAYS: Reserve clear visual zones so the image works with overlaid text later:
+  * TOP third: Bright, uncluttered area (sky, soft gradient, or very soft blur) where a bold headline would sit. Avoid busy details here.
+  * MIDDLE: The person; they are the main emotional focus.
+  * BOTTOM third: Either a calmer part of the scene (e.g. railing, soft shadow) or a subtle gradient so that 2–3 small feature callouts (icons + short text) could be overlaid. Do not draw text or icons; just leave compositional space.
+- The test kit product can appear subtly in scene (e.g. on a railing, table, or in hand) if it fits naturally; otherwise the scene should still clearly suggest “at-home test” through mood and context. If a reference product image is provided, show it accurately in a natural position.
+- Mood: Professional, trustworthy, hopeful, calm. Premium health/wellness advertising style. No cartoon, no clutter.`;
+
 /**
  * Builds the prompt sent to KIE. Optional description and kitInfo improve
  * image relevance (KI can depict the right kind of kit, packaging, trust).
  * includePerson: "person" or "couple" adds instructions to show people in the ad.
+ * adStyle: "lifestyle" adds composition for headline top + feature bottom (person in scene).
  */
 export function buildAdPrompt(
   productName: string,
@@ -40,12 +56,17 @@ export function buildAdPrompt(
   customSystemContext?: string | null,
   description?: string | null,
   kitInfo?: string | null,
-  includePerson: IncludePersonOption = "none"
+  includePerson: IncludePersonOption = "none",
+  adStyle: AdStyleOption = "standard",
+  referenceCount?: number
 ): string {
   const systemContext =
     customSystemContext?.trim() || DEFAULT_SYSTEM_CONTEXT;
-  const personInstruction = getPersonInstruction(includePerson);
-  const fullSystemContext = systemContext + personInstruction;
+  let personInstruction = getPersonInstruction(includePerson);
+  if (adStyle === "lifestyle" && includePerson === "none")
+    personInstruction = getPersonInstruction("person");
+  const lifestyleBlock = adStyle === "lifestyle" ? LIFESTYLE_COMPOSITION : "";
+  const fullSystemContext = systemContext + personInstruction + lifestyleBlock;
 
   const safeHook = hook.trim().slice(0, MAX_HOOK_LENGTH);
   const safeProductName = productName.trim().slice(0, 100);
@@ -57,7 +78,9 @@ export function buildAdPrompt(
   if (safeKit) productBlock += `\nKit contents (can inform packaging/scene): ${safeKit}.`;
 
   const refInstruction = hasReferenceImage
-    ? "Use the provided reference image as the exact product. Keep the product appearance identical; only adjust composition, background, or layout to create an ad image in the requested aspect ratio."
+    ? (referenceCount && referenceCount > 1
+        ? "Multiple reference images provided: use the first as the exact product to depict (keep appearance identical). Use the other images as style, composition, and layout inspiration (e.g. mood, framing, headline placement). Only adjust composition, background, or layout to create an ad image in the requested aspect ratio."
+        : "Use the provided reference image as the exact product. Keep the product appearance identical; only adjust composition, background, or layout to create an ad image in the requested aspect ratio.")
     : "Depict a generic, professional-looking at-home test kit appropriate for the product type. Do not invent specific brand logos; keep packaging neutral and credible.";
 
   return `${fullSystemContext}

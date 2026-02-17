@@ -8,6 +8,7 @@
  */
 
 const JOBS_BASE = "https://api.kie.ai/api/v1/jobs";
+const API_BASE = "https://api.kie.ai/api/v1";
 const FILE_UPLOAD_BASE = "https://kieai.redpandaai.co";
 const MODEL = "nano-banana-pro";
 
@@ -27,7 +28,10 @@ export type NanoBananaAspectRatio =
 export interface GenerateInput {
   prompt: string;
   aspectRatio: NanoBananaAspectRatio;
+  /** Einzelbild (Legacy) */
   inputImageUrl?: string;
+  /** Bis zu 8 Referenzbilder (Produkt + Inspiration). KIE: max 8 files. */
+  inputImageUrls?: string[];
   resolution?: "1K" | "2K" | "4K";
 }
 
@@ -96,6 +100,27 @@ export async function uploadReferenceImage(
   return json.data.downloadUrl;
 }
 
+/**
+ * Verbleibende KIE-Credits abrufen (GET /api/v1/chat/credit).
+ * Gibt die Anzahl zurück oder null bei Fehler.
+ */
+export async function getCredits(apiKey: string): Promise<number | null> {
+  try {
+    const res = await fetch(`${API_BASE}/chat/credit`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      code?: number;
+      data?: number;
+      msg?: string;
+    };
+    if (json.code === 200 && typeof json.data === "number") return json.data;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Map our config ratios to Nano Banana Pro (omit unsupported). */
 export const ASPECT_RATIO_MAP: Record<string, NanoBananaAspectRatio> = {
   "1:1": "1:1",
@@ -114,6 +139,13 @@ export async function createGenerateTask(
   apiKey: string,
   input: GenerateInput
 ): Promise<{ taskId: string }> {
+  const imageUrls = (
+    input.inputImageUrls?.length
+      ? input.inputImageUrls.slice(0, 8)
+      : input.inputImageUrl
+        ? [input.inputImageUrl]
+        : []
+  ).filter(Boolean);
   const body = {
     model: MODEL,
     input: {
@@ -121,9 +153,7 @@ export async function createGenerateTask(
       aspect_ratio: input.aspectRatio,
       resolution: input.resolution ?? "1K",
       output_format: "png",
-      ...(input.inputImageUrl
-        ? { image_input: [input.inputImageUrl] }
-        : {}),
+      ...(imageUrls.length > 0 ? { image_input: imageUrls } : {}),
     },
   };
 

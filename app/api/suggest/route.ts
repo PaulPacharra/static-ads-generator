@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { prisma } from "@/lib/db";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export type SuggestResponse = {
   hooks: string[];
   headlines?: string[];
@@ -14,13 +10,15 @@ export type SuggestResponse = {
 
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey?.trim()) {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
       return NextResponse.json(
         { error: "OPENAI_API_KEY ist nicht konfiguriert." },
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({ apiKey });
 
     const body = await request.json();
     const { productId, context, medium } = body as {

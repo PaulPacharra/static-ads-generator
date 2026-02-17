@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   AD_FORMATS,
   MEDIA_OPTIONS,
@@ -51,11 +51,13 @@ export default function Home() {
   const [medium, setMedium] = useState<MediaId>("all");
   const [hook, setHook] = useState("");
   const [includePerson, setIncludePerson] = useState<"none" | "person" | "couple">("none");
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [referencePreview, setReferencePreview] = useState<string | null>(null);
-  const [referenceImageUrl, setReferenceImageUrl] = useState("");
-  const [referenceUrl, setReferenceUrl] = useState<string | null>(null);
-  const [referenceUrlPreviewError, setReferenceUrlPreviewError] = useState(false);
+  const [adStyle, setAdStyle] = useState<"standard" | "lifestyle">("standard");
+  type RefImage = { id: string; url?: string; file?: File; preview?: string };
+  const [referenceImages, setReferenceImages] = useState<RefImage[]>(() => [
+    { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+  ]);
+  const pendingFileSlotIdRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +72,20 @@ export default function Home() {
     headlines?: string[];
     descriptions?: string[];
   } | null>(null);
+  const [kieCredits, setKieCredits] = useState<number | null>(null);
+
+  const fetchCredits = useCallback(() => {
+    fetch("/api/credits")
+      .then((r) => r.json())
+      .then((data: { credits?: number; error?: string }) => {
+        if (typeof data.credits === "number") setKieCredits(data.credits);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits]);
 
   // Produkte aus DB laden
   useEffect(() => {
@@ -141,37 +157,70 @@ export default function Home() {
     }
   }, []);
 
-  const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const addReferenceImage = useCallback(() => {
+    if (referenceImages.length >= 8) return;
+    setReferenceImages((prev) => [
+      ...prev,
+      { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+    ]);
+  }, [referenceImages.length]);
+
+  const removeReferenceImage = useCallback((id: string) => {
+    setReferenceImages((prev) => prev.filter((r) => r.id !== id));
+    setError(null);
+  }, []);
+
+  const setRefImageUrl = useCallback((id: string, url: string) => {
+    setReferenceImages((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, url: url || undefined, file: undefined, preview: undefined } : r))
+    );
+    setError(null);
+  }, []);
+
+  const onReferenceFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      setReferenceFile(null);
-      setReferencePreview(null);
-      setReferenceUrl(null);
-      return;
-    }
+    const slotId = pendingFileSlotIdRef.current;
+    e.target.value = "";
+    pendingFileSlotIdRef.current = null;
+    if (!file || !slotId) return;
     if (!file.type.startsWith("image/")) {
       setError("Bitte ein Bild (JPEG, PNG, WebP) wählen.");
       return;
     }
-    setReferenceFile(file);
-    setReferencePreview(URL.createObjectURL(file));
-    setReferenceUrl(null);
-    setReferenceImageUrl("");
+    setReferenceImages((prev) =>
+      prev.map((r) =>
+        r.id === slotId ? { ...r, file, preview: URL.createObjectURL(file), url: undefined } : r
+      )
+    );
     setError(null);
   }, []);
 
-  const uploadReference = useCallback(async (): Promise<string | null> => {
-    if (!referenceFile) return null;
-    const form = new FormData();
-    form.set("file", referenceFile);
-    const res = await fetch("/api/upload", { method: "POST", body: form });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      throw new Error(j.error || "Upload fehlgeschlagen");
+  const triggerFileSelect = useCallback((slotId: string) => {
+    pendingFileSlotIdRef.current = slotId;
+    setTimeout(() => fileInputRef.current?.click(), 0);
+  }, []);
+
+  const resolveReferenceUrls = useCallback(async (): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const ref of referenceImages) {
+      if (ref.url?.trim()) {
+        urls.push(ref.url.trim());
+        continue;
+      }
+      if (ref.file) {
+        const form = new FormData();
+        form.set("file", ref.file);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "Upload fehlgeschlagen");
+        }
+        const { url } = await res.json();
+        if (url) urls.push(url);
+      }
     }
-    const { url } = await res.json();
-    return url;
-  }, [referenceFile]);
+    return urls;
+  }, [referenceImages]);
 
   const saveImageToBlob = useCallback(
     async (imageUrl: string, aspectRatio: string): Promise<string | null> => {
@@ -214,16 +263,15 @@ export default function Home() {
     }
     setError(null);
     setLoading(true);
-    const pastedUrl = referenceImageUrl.trim() || null;
-    let refUrl: string | null = pastedUrl ?? referenceUrl ?? null;
-    if (!refUrl && referenceFile) {
+    let refUrls: string[] = [];
+    const hasRefs = referenceImages.some((r) => r.url?.trim() || r.file);
+    if (hasRefs) {
       try {
-        refUrl = await uploadReference();
-        if (refUrl) setReferenceUrl(refUrl);
+        refUrls = await resolveReferenceUrls();
       } catch (e) {
         setError(
           (e instanceof Error ? e.message : "Upload fehlgeschlagen") +
-            " Ohne Vercel Blob: Referenzbild-URL unten einfügen (öffentlicher Bild-Link)."
+            " Ohne Vercel Blob: Referenzbilder als öffentliche URLs einfügen."
         );
         setLoading(false);
         return;
@@ -239,7 +287,8 @@ export default function Home() {
           medium,
           hook: hook.trim(),
           includePerson,
-          referenceImageUrl: refUrl || undefined,
+          adStyle,
+          ...(refUrls.length > 0 ? { referenceImageUrls: refUrls } : {}),
           customSystemPrompt: customSystemPrompt.trim() || undefined,
         }),
       });
@@ -250,6 +299,7 @@ export default function Home() {
         return;
       }
 
+      fetchCredits();
       const taskIds = data.taskIds as {
         aspectRatio: string;
         taskId: string;
@@ -319,14 +369,14 @@ export default function Home() {
     productId,
     medium,
     includePerson,
-    referenceFile,
-    referenceImageUrl,
-    referenceUrl,
+    adStyle,
+    referenceImages,
     customSystemPrompt,
-    uploadReference,
+    resolveReferenceUrls,
     pollTask,
     saveImageToBlob,
     persistSession,
+    fetchCredits,
   ]);
 
   const displayUrl = (t: TaskState) => t.savedUrl || t.imageUrl;
@@ -371,13 +421,21 @@ export default function Home() {
               die KI erstellt die Ads.
             </p>
           </div>
-          <a
-            href="/admin"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <span className="opacity-70">⚙</span>
-            Heimtests verwalten
-          </a>
+          <div className="flex flex-wrap items-center gap-3">
+            {kieCredits !== null && (
+              <span className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+                <span className="font-medium text-slate-800">{kieCredits}</span>{" "}
+                Credits (KIE)
+              </span>
+            )}
+            <a
+              href="/admin"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <span className="opacity-70">⚙</span>
+              Heimtests verwalten
+            </a>
+          </div>
         </header>
 
         <section className="mb-10 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg shadow-slate-200/50 sm:rounded-3xl">
@@ -596,6 +654,28 @@ export default function Home() {
             </div>
 
             <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Anzeigen-Stil
+              </label>
+              <p className="mb-2 text-xs text-slate-500">
+                Lifestyle: Person in Szene, oben Platz für Headline, unten für
+                Feature-Icons (wie Allergietest-Referenz).
+              </p>
+              <select
+                value={adStyle}
+                onChange={(e) =>
+                  setAdStyle(e.target.value as "standard" | "lifestyle")
+                }
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              >
+                <option value="standard">Standard (Produkt im Fokus)</option>
+                <option value="lifestyle">
+                  Lifestyle (Person, Platz für Headline und Features)
+                </option>
+              </select>
+            </div>
+
+            <div>
               <button
                 type="button"
                 onClick={() => setPromptSectionOpen((o) => !o)}
@@ -631,59 +711,72 @@ export default function Home() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Referenzbild (optional)
+                Referenzbilder (optional, max. 8)
               </label>
               <p className="mb-3 text-xs text-slate-500">
-                Bild-URL (https://, öffentlich) oder Datei. Google-Drive-Links
-                werden automatisch umgewandelt. Datei mit „Jeder mit dem Link”
-                teilen.
+                Produktbild + Ads die dir gefallen (als Inspiration für Stil &
+                Aufbau). URLs (https://) oder Dateien. Erste Bilder = stärkere
+                Referenz. Google-Drive-Links werden umgewandelt.
               </p>
               <input
-                type="url"
-                value={referenceImageUrl}
-                onChange={(e) => {
-                  setReferenceImageUrl(e.target.value);
-                  setReferenceUrlPreviewError(false);
-                  setError(null);
-                }}
-                placeholder="https://… (Link zum Testkit-Bild)"
-                className="mb-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={onReferenceFileChange}
+                ref={fileInputRef}
+                className="hidden"
               />
-              <div className="flex items-center gap-3">
-                <label className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
-                  <span className="opacity-80">📁</span>
-                  <span className="ml-2">Datei wählen</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={onFileChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-              {referencePreview && (
-                <img
-                  src={referencePreview}
-                  alt="Referenz"
-                  className="mt-3 max-h-36 rounded-xl border border-slate-200 object-contain shadow-sm"
-                />
-              )}
-              {referenceImageUrl.trim() && !referenceFile && (
-                <div className="mt-3">
-                  <img
-                    src={referenceImageUrl.trim()}
-                    alt="Referenz URL"
-                    className="max-h-36 rounded-xl border border-slate-200 object-contain shadow-sm"
-                    onError={() => setReferenceUrlPreviewError(true)}
-                    onLoad={() => setReferenceUrlPreviewError(false)}
-                  />
-                  {referenceUrlPreviewError && (
-                    <p className="mt-2 text-xs text-amber-600">
-                      Vorschau fehlgeschlagen. URL wird trotzdem an die KI
-                      übergeben.
-                    </p>
+              {referenceImages.map((ref) => (
+                <div
+                  key={ref.id}
+                  className="mb-3 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <input
+                      type="url"
+                      value={ref.url ?? ""}
+                      onChange={(e) => setRefImageUrl(ref.id, e.target.value)}
+                      placeholder="https://… oder Datei wählen"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerFileSelect(ref.id)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                    >
+                      📁 Datei
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeReferenceImage(ref.id)}
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                  {(ref.preview || ref.url) && (
+                    <div className="w-full">
+                      <img
+                        src={ref.preview ?? ref.url}
+                        alt="Referenz"
+                        className="max-h-28 rounded-lg border border-slate-200 object-contain"
+                        onError={(e) => {
+                          if (ref.url) e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
+              ))}
+              {referenceImages.length < 8 && (
+                <button
+                  type="button"
+                  onClick={addReferenceImage}
+                  className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-indigo-400 hover:bg-indigo-50/50 hover:text-indigo-700"
+                >
+                  + Bild hinzufügen (URL oder Datei)
+                </button>
               )}
             </div>
 
@@ -693,22 +786,19 @@ export default function Home() {
                 {(error.includes("AI Studio") || error.includes("400")) && (
                   <p className="mt-2 text-xs text-amber-800">
                     KIE nutzt Googles API. 400 = ungültige Anfrage: Hook kürzen
-                    oder ohne Referenzbild testen.
+                    oder weniger Referenzbilder testen.
                   </p>
                 )}
-                {(referenceImageUrl.trim() || referenceFile) && (
+                {referenceImages.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setReferenceImageUrl("");
-                      setReferenceFile(null);
-                      setReferencePreview(null);
-                      setReferenceUrl(null);
+                      setReferenceImages([]);
                       setError(null);
                     }}
                     className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
                   >
-                    Referenzbild entfernen und erneut versuchen
+                    Alle Referenzbilder entfernen und erneut versuchen
                   </button>
                 )}
               </div>

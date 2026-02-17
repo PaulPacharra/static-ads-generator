@@ -22,12 +22,12 @@ export async function POST(request: Request) {
     productName?: string;
     hook: string;
     referenceImageUrl?: string;
-    /** Optional: überschreibt den Standard-System-Prompt aus der App */
+    /** Optional: bis zu 8 Referenzbild-URLs (Produkt + Inspiration). KIE max 8. */
+    referenceImageUrls?: string[];
     customSystemPrompt?: string;
-    /** Optional: Medium (google | meta | all) – nur diese Formate werden erzeugt */
     medium?: MediaId;
-    /** Optional: "person" oder "couple" – Person/Paar in der Anzeige integrieren */
     includePerson?: "none" | "person" | "couple";
+    adStyle?: "standard" | "lifestyle";
   };
   try {
     body = await request.json();
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { productId, productName, hook, referenceImageUrl, customSystemPrompt, medium, includePerson } = body;
+  const { productId, productName, hook, referenceImageUrl, referenceImageUrls, customSystemPrompt, medium, includePerson, adStyle } = body;
   if (!hook?.trim()) {
     return NextResponse.json(
       { error: "hook is required" },
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   let productSlug = "Heimtest";
   let productDescription: string | null = null;
   let productKitInfo: string | null = null;
-  let refImageFromRequest = referenceImageUrl?.trim();
+  let productRefUrl: string | null = null;
 
   if (productId) {
     const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -62,37 +62,38 @@ export async function POST(request: Request) {
       productSlug = product.slug;
       productDescription = product.description;
       productKitInfo = product.kitInfo;
-      if (!refImageFromRequest && product.referenceImageUrl?.trim()) {
-        refImageFromRequest = product.referenceImageUrl.trim();
-      }
+      if (product.referenceImageUrl?.trim()) productRefUrl = product.referenceImageUrl.trim();
     }
   } else if (productName?.trim()) {
     productSlug = productName.trim();
   }
 
-  // Nano Banana Pro only accepts image_input URLs from KIE's file-upload API
-  let refUrl: string | undefined;
-  if (refImageFromRequest) {
-    const u = toDirectImageUrl(refImageFromRequest);
+  // Alle Referenzbild-URLs sammeln (einzel + Array, max 8). Erst Request, dann Produkt.
+  const rawRefs = [
+    referenceImageUrl?.trim(),
+    ...(Array.isArray(referenceImageUrls) ? referenceImageUrls.map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean) : []),
+  ].filter(Boolean) as string[];
+  const uniqueRefs = [...new Set(rawRefs)];
+  const refsToUpload = productRefUrl && !uniqueRefs.length ? [productRefUrl] : uniqueRefs.slice(0, 8);
+
+  // Nano Banana Pro: image_input nur URLs von KIE File-Upload-API
+  const refUrls: string[] = [];
+  for (const rawUrl of refsToUpload) {
+    const u = toDirectImageUrl(rawUrl);
     if (!u.startsWith("https://") || u.length > 2000) {
       return NextResponse.json(
-        {
-          error:
-            "Referenzbild-URL muss mit https:// beginnen und öffentlich erreichbar sein.",
-        },
+        { error: "Referenzbild-URLs müssen mit https:// beginnen und öffentlich erreichbar sein." },
         { status: 400 }
       );
     }
     try {
-      refUrl = await uploadReferenceImage(apiKey, u);
+      const kieUrl = await uploadReferenceImage(apiKey, u);
+      refUrls.push(kieUrl);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Upload fehlgeschlagen";
       console.error("KIE reference image upload failed:", message);
       return NextResponse.json(
-        {
-          error: `Referenzbild konnte nicht an KIE übermittelt werden: ${message}`,
-          detail: message,
-        },
+        { error: `Referenzbild konnte nicht an KIE übermittelt werden: ${message}`, detail: message },
         { status: 502 }
       );
     }
@@ -101,11 +102,13 @@ export async function POST(request: Request) {
   const prompt = buildAdPrompt(
     productSlug,
     hook.trim(),
-    Boolean(refUrl),
+    refUrls.length > 0,
     customSystemPrompt,
     productDescription,
     productKitInfo,
-    includePerson === "person" || includePerson === "couple" ? includePerson : "none"
+    includePerson === "person" || includePerson === "couple" ? includePerson : "none",
+    adStyle === "lifestyle" ? "lifestyle" : "standard",
+    refUrls.length
   );
 
   const formatsToGenerate = getFormatsForMedium(medium ?? "all");
@@ -118,7 +121,7 @@ export async function POST(request: Request) {
       const { taskId } = await createGenerateTask(apiKey, {
         prompt,
         aspectRatio: nanoRatio,
-        inputImageUrl: refUrl,
+        ...(refUrls.length > 0 ? { inputImageUrls: refUrls } : {}),
       });
       results.push({ aspectRatio: format.ratio, taskId });
     } catch (e) {
