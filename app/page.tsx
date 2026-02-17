@@ -88,10 +88,19 @@ export default function Home() {
   }, [fetchCredits]);
 
   // Produkte aus DB laden
+  const [productsLoaded, setProductsLoaded] = useState(false);
   useEffect(() => {
     fetch("/api/products")
-      .then((r) => r.json())
-      .then((data: Product[]) => {
+      .then((r) => r.json().then((data: Product[] | { error?: string }) => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        setProductsLoaded(true);
+        if (!ok) {
+          const msg = data && typeof (data as { error?: string }).error === "string"
+            ? (data as { error: string }).error
+            : "Produkte konnten nicht geladen werden.";
+          setError(msg);
+          return;
+        }
         if (Array.isArray(data)) {
           setProducts(data);
           setProductId((prev) => {
@@ -101,7 +110,10 @@ export default function Home() {
           });
         }
       })
-      .catch(() => setError("Produkte konnten nicht geladen werden."));
+      .catch(() => {
+        setProductsLoaded(true);
+        setError("Produkte konnten nicht geladen werden.");
+      });
   }, []);
 
   // Last session from localStorage (nach Produkt-Load, damit productId zu einem echten Produkt passt)
@@ -454,8 +466,11 @@ export default function Home() {
                 onChange={(e) => setProductId(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
-                {products.length === 0 && (
+                {!productsLoaded && (
                   <option value="">Lade …</option>
+                )}
+                {productsLoaded && products.length === 0 && (
+                  <option value="">Kein Heimtest – unter Admin anlegen</option>
                 )}
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>

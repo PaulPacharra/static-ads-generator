@@ -69,9 +69,11 @@ Die **direkte** Verbindung (Port 5432) ist von Vercel aus oft nicht erreichbar. 
 4. Diese komplette URI kopieren (mit Passwort) und in Vercel als **DATABASE_URL** eintragen.
 
 Beispiel-Format:  
-`postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true`
+`postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require`
 
-Ohne die Pooler-URL bleiben Produkte leer und das Anlegen von Heimtests schlägt fehl.
+**Wichtig:** `sslmode=require` an die URL hängen, sonst kann die Verbindung von Vercel aus hängen oder fehlschlagen.
+
+Ohne die Pooler-URL (Port 6543) und ohne SSL bleiben Produkte leer und das Anlegen von Heimtests schlägt fehl.
 
 ## Ablauf
 
