@@ -54,15 +54,9 @@ npm run dev
    - **BLOB_READ_WRITE_TOKEN** (optional, Vercel Dashboard → Storage → Blob)
 6. **Deploy** starten.
 
-### 3. Datenbank-Migration (einmalig)
+### 3. Tabellen in Supabase
 
-Nach dem ersten Deploy die Tabellen in Supabase anlegen. Lokal (mit derselben `DATABASE_URL` wie in Vercel) oder in einem einmaligen Schritt:
-
-```bash
-DATABASE_URL="postgresql://..." npm run db:migrate:deploy
-```
-
-Optional danach Seed ausführen: `npm run db:seed` (mit derselben `DATABASE_URL`).
+Die **Migration läuft automatisch beim Vercel-Build** (`prisma migrate deploy`). Sobald `DATABASE_URL` in Vercel gesetzt ist und du deployest, wird die Tabelle `Product` in Supabase angelegt – **kein manuelles Ausführen** nötig. Optional: Seed für Beispiel-Heimtests lokal mit `npm run db:seed` (wenn du mit derselben `DATABASE_URL` verbunden bist).
 
 ## Ablauf
 
