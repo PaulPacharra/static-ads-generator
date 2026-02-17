@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Static Ads Generator – Heimtests
 
-## Getting Started
+Web-App zum Erzeugen von **statischen Werbebildern** für Heimtests in 6 Formaten (1:1, 16:9, 4:3, 3:4, 9:16, 21:9) für Google & Meta. Nutzt die **KIE API** ([Nano Banana Pro](https://kie.ai/nano-banana-pro) – Gemini 3.0 Pro Image) für die Bildgenerierung.
 
-First, run the development server:
+## Voraussetzungen
+
+- [KIE API](https://kie.ai/api-key) Account und API-Key
+- **Datenbank:** [Supabase](https://supabase.com) (PostgreSQL) – für lokal und Vercel
+- Optional: [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) für Referenzbild-Upload
+
+## Lokal starten
+
+1. **Supabase:** Projekt unter [supabase.com](https://supabase.com) anlegen. Unter **Settings → Database** die **Connection string (URI)** kopieren (Mode: Transaction, Port 6543 für Pooler).
+2. **Umgebung:**
 
 ```bash
+cp .env.example .env.local
+# In .env.local eintragen: KIE_API_KEY, OPENAI_API_KEY (optional), DATABASE_URL (Supabase-URI)
+npm install
+npm run db:migrate:deploy   # einmalig: Tabellen in Supabase anlegen
+npm run db:seed             # einmalig: Standard-Heimtests einfügen (optional)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Heimtests verwalten:** Im Browser [http://localhost:3000/admin](http://localhost:3000/admin) öffnen – dort Produkte anlegen/bearbeiten, Shop-URL, Beschreibung und Kit-Infos eintragen. Diese Infos fließen in den KI-Prompt und können die generierten Bilder passender machen.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Öffne [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Hinweis:** Referenzbild-Upload benötigt `BLOB_READ_WRITE_TOKEN` (Vercel Blob). Ohne Token kannst du nur ohne Referenzbild generieren (nur Hook + Produkt).
 
-## Learn More
+## Deployment (Vercel + Supabase)
 
-To learn more about Next.js, take a look at the following resources:
+### 1. Supabase einrichten
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. [Supabase](https://supabase.com) → neues Projekt anlegen (Region wählen, Passwort für DB setzen).
+2. **Settings → Database** → unter **Connection string** die **URI** wählen (z. B. **Transaction** mit Port **6543**, Pooler). Diese URL für `DATABASE_URL` verwenden.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 2. Git & Vercel
 
-## Deploy on Vercel
+1. **Git** (falls noch nicht geschehen, im Ordner `static-ads-app`):
+   ```bash
+   cd static-ads-app
+   git init
+   git add .
+   git commit -m "Initial commit: Static Ads Generator"
+   ```
+2. Repo auf GitHub/GitLab/Bitbucket pushen.
+3. [Vercel](https://vercel.com) → **Add New Project** → Repo importieren.
+4. **Root Directory:** auf `static-ads-app` setzen (falls das Repo den Ordner enthält) oder Root lassen, wenn das Repo nur den App-Inhalt hat.
+5. **Environment Variables** eintragen:
+   - **KIE_API_KEY** (erforderlich)
+   - **DATABASE_URL** = Supabase Connection URI (aus Schritt 1)
+   - **OPENAI_API_KEY** (optional, für Ideen & Hooks)
+   - **BLOB_READ_WRITE_TOKEN** (optional, Vercel Dashboard → Storage → Blob)
+6. **Deploy** starten.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. Datenbank-Migration (einmalig)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Nach dem ersten Deploy die Tabellen in Supabase anlegen. Lokal (mit derselben `DATABASE_URL` wie in Vercel) oder in einem einmaligen Schritt:
+
+```bash
+DATABASE_URL="postgresql://..." npm run db:migrate:deploy
+```
+
+Optional danach Seed ausführen: `npm run db:seed` (mit derselben `DATABASE_URL`).
+
+## Ablauf
+
+1. **Heimtest** auswählen (z. B. Vitamin D, Schilddrüse).
+2. **Hook / Aufhänger** eingeben (z. B. „Schnell Gewissheit von zu Hause“).
+3. Optional **Referenzbild** (URL oder Upload), damit die KI das Produkt erkennt.
+4. **„6 Ads generieren“** → 6 Formate werden bei KIE erstellt, Fortschritt wird angezeigt.
+5. Fertige Bilder: **Download** pro Format oder **„Alle herunterladen“**. Wenn Vercel Blob konfiguriert ist, werden Bilder automatisch dauerhaft bei euch gespeichert (nicht nur 14 Tage bei KIE).
+6. **Letzte Session** bleibt nach Reload erhalten (localStorage); **„Session löschen“** entfernt die Anzeige.
+
+Produkte und Formate in `lib/config.ts`; System-Prompt in `lib/prompts.ts` (auch in der App konfigurierbar).

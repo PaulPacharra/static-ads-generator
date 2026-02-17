@@ -1,0 +1,20 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String   // Anzeigename, z.B. "Vitamin D"
+  slug              String   @unique // Für Prompt, z.B. "Vitamin D Test"
+  shopUrl           String?  // Link zum Shop
+  description       String?  // Kurzbeschreibung für KI (Nutzen, Zielgruppe)
+  kitInfo           String?  // Was im Set ist, z.B. "Lanzette, Probenröhrchen, Rücksendeumschlag"
+  referenceImageUrl String?  // Optionale Standard-Referenzbild-URL für dieses Produkt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
