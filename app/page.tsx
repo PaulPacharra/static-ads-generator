@@ -105,6 +105,18 @@ export default function Home() {
   const [librarySaveMessage, setLibrarySaveMessage] = useState<string | null>(null);
   const [librarySaving, setLibrarySaving] = useState(false);
 
+  const WIZARD_STEPS = 7;
+  const [wizardStep, setWizardStep] = useState(1);
+  const wizardStepTitles: Record<number, string> = {
+    1: "Für welchen Test soll eine Ad erstellt werden?",
+    2: "In welchem Format?",
+    3: "Ideen mit ChatGPT",
+    4: "Hook & deine 3 USPs",
+    5: "Person & Stil",
+    6: "Referenzbilder",
+    7: "Zusammenfassung & Generieren",
+  };
+
   const fetchCredits = useCallback(() => {
     fetch("/api/credits")
       .then((r) => r.json())
@@ -583,47 +595,27 @@ export default function Home() {
         </header>
 
         <section className="mb-10 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg shadow-slate-200/50 sm:rounded-3xl">
-          <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-4 sm:px-8">
-            <h2 className="text-base font-semibold tracking-tight text-slate-800 sm:text-lg">
-              Einstellungen
-            </h2>
+          <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-3 sm:px-8">
+            <p className="text-sm font-medium text-slate-500">
+              Schritt {wizardStep} von {WIZARD_STEPS}
+            </p>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+                style={{ width: `${(wizardStep / WIZARD_STEPS) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 lg:grid-cols-[280px_1fr]">
-            <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Erklärungen
-                </h3>
-                <ul className="space-y-4 text-sm text-slate-600">
-                  <li>
-                    <span className="font-medium text-slate-800">Heimtest</span> – Wähle das Produkt, für das Ads erstellt werden. Name und Infos fließen in die KI-Prompts ein. Produkte legst du unter Admin an.
-                  </li>
-                  <li>
-                    <span className="font-medium text-slate-800">Medium</span> – Nur zur Einordnung; es werden immer 2× 9:16 und 2× 1:1 erstellt (Stories + Quadrat).
-                  </li>
-                  <li>
-                    <span className="font-medium text-slate-800">Ideen & USPs</span> – ChatGPT schlägt viele Hooks, Schlagzeilen und USPs vor. Beim USPs: im Abschnitt „Deine 3 USPs“ Slots 1–3 per Klick (→1, →2, →3) oder „Alle 3 übernehmen“ befüllen.
-                  </li>
-                  <li>
-                    <span className="font-medium text-slate-800">Hook</span> – Der zentrale Werbesatz bzw. Aufhänger für die Anzeige. Wird an die Bild-KI übergeben und steuert Stimmung und Botschaft.
-                  </li>
-                  <li>
-                    <span className="font-medium text-slate-800">Person & Stil</span> – Mit Person/Paar wirkt die Anzeige lebensnäher. Lifestyle-Stil reserviert oben/unten Platz für Headline und Feature-Zeile (wie bei Referenz-Ads).
-                  </li>
-                  <li>
-                    <span className="font-medium text-slate-800">Referenzbilder</span> – Erstes Feld: euer Produktbild (Verpackung/Kit). Darunter: bis zu 7 Ads als Inspiration für Stil und Aufbau. URLs in der Bibliothek speichern und im Picker auswählen.
-                  </li>
-                  <li>
-                    <span className="font-medium text-slate-800">Generieren</span> – Startet die Erstellung von 4 Ads (2× 9:16, 2× 1:1). KIE nutzt Hook, Referenzbilder und ggf. USPs für die Bildkomposition.
-                  </li>
-                </ul>
-              </div>
-            </aside>
-            <div className="space-y-6">
+          <div className="p-6 sm:p-8">
+            <h2 className="mb-6 text-xl font-semibold tracking-tight text-slate-800 sm:text-2xl">
+              {wizardStepTitles[wizardStep]}
+            </h2>
+
+            {wizardStep === 1 && (
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Heimtest
-              </label>
+              <p className="mb-4 text-sm text-slate-600">
+                Wähle das Produkt (Heimtest), für das die Anzeigen erstellt werden. Name und Infos fließen in die KI ein.
+              </p>
               <select
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
@@ -656,11 +648,13 @@ export default function Home() {
                 ) : null;
               })()}
             </div>
+            )}
 
+            {wizardStep === 2 && (
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Medium (Formate)
-              </label>
+              <p className="mb-4 text-sm text-slate-600">
+                Es werden immer 2× 9:16 (Stories) und 2× 1:1 (Quadrat) erstellt. Die Auswahl dient der Einordnung (Google, Meta oder beides).
+              </p>
               <select
                 value={medium}
                 onChange={(e) => setMedium(e.target.value as MediaId)}
@@ -673,11 +667,13 @@ export default function Home() {
                 ))}
               </select>
             </div>
+            )}
 
+            {wizardStep === 3 && (
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-              <h3 className="mb-2 text-sm font-semibold text-slate-800">
-                Ideen mit ChatGPT
-              </h3>
+              <p className="mb-4 text-sm text-slate-600">
+                Beschreibe den Anlass – ChatGPT schlägt dir Hooks, Schlagzeilen und USPs vor.
+              </p>
               <p className="mb-3 text-xs text-slate-500">
                 Beschreibe den Anlass (z.B. „Allergiesaison startet bald – wir
                 brauchen Ads für Google“). ChatGPT schlägt passende Hooks und
@@ -884,7 +880,10 @@ export default function Home() {
                 )}
               </div>
             </div>
+            )}
 
+            {wizardStep === 4 && (
+            <>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Hook / Aufhänger
@@ -967,7 +966,11 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
+            </>
+            )}
 
+            {wizardStep === 5 && (
+            <>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Person in der Anzeige
@@ -1027,41 +1030,16 @@ export default function Home() {
                 </div>
               )}
             </div>
+            </>
+            )}
 
+            {wizardStep === 6 && (
+            <>
             <div>
-              <button
-                type="button"
-                onClick={() => setPromptSectionOpen((o) => !o)}
-                className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
-              >
-                <span className="text-slate-400">
-                  {promptSectionOpen ? "▼" : "▶"}
-                </span>
-                System-Prompt konfigurieren
-              </button>
-              {promptSectionOpen && (
-                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-                  <p className="mb-3 text-xs text-slate-500">
-                    Leer = Standard-Prompt. Eigenen Text = Überschreibung.
-                  </p>
-                  <textarea
-                    value={customSystemPrompt}
-                    onChange={(e) => setCustomSystemPrompt(e.target.value)}
-                    placeholder="Optional: Anweisungen an die KI …"
-                    rows={8}
-                    className="mb-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={loadDefaultPrompt}
-                    className="rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-300"
-                  >
-                    Standard-Prompt laden
-                  </button>
-                </div>
-              )}
+              <p className="mb-4 text-sm text-slate-600">
+                Produktbild (optional) und bis zu 7 Ads als Stil-Inspiration. URLs in der Bibliothek speichern und hier auswählen oder eintippen.
+              </p>
             </div>
-
             {/* 1. Referenzbild deines Heimtests (Produktfoto / Verpackung) */}
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -1250,7 +1228,50 @@ export default function Home() {
                 </button>
               )}
             </div>
+            </>
+            )}
 
+            {wizardStep === 7 && (
+            <>
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+              <p className="mb-2 text-sm font-medium text-slate-700">Zusammenfassung</p>
+              <ul className="space-y-1 text-sm text-slate-600">
+                <li><strong>Heimtest:</strong> {products.find((p) => p.id === productId)?.name ?? "—"}</li>
+                <li><strong>Format:</strong> {MEDIA_OPTIONS.find((m) => m.id === medium)?.label ?? "—"} (2× 9:16, 2× 1:1)</li>
+                <li><strong>Hook:</strong> {hook.trim() || "—"}</li>
+                {adStyle === "lifestyle" && selectedUsps.some(Boolean) && (
+                  <li><strong>USPs:</strong> {selectedUsps.slice(0, 3).filter(Boolean).join(", ") || "—"}</li>
+                )}
+              </ul>
+            </div>
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={() => setPromptSectionOpen((o) => !o)}
+                className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+              >
+                <span className="text-slate-400">{promptSectionOpen ? "▼" : "▶"}</span>
+                System-Prompt konfigurieren (optional)
+              </button>
+              {promptSectionOpen && (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                  <textarea
+                    value={customSystemPrompt}
+                    onChange={(e) => setCustomSystemPrompt(e.target.value)}
+                    placeholder="Optional: Anweisungen an die KI …"
+                    rows={6}
+                    className="mb-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={loadDefaultPrompt}
+                    className="rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-300"
+                  >
+                    Standard-Prompt laden
+                  </button>
+                </div>
+              )}
+            </div>
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-4 text-sm text-red-800">
                 <p>{error}</p>
@@ -1285,6 +1306,30 @@ export default function Home() {
                 ? `Generiere … ${progressLabel}`
                 : `${getFormatsForMedium(medium).length} Ads generieren (${MEDIA_OPTIONS.find((m) => m.id === medium)?.label ?? "Alle"})`}
             </button>
+            </>
+            )}
+
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-6">
+              {wizardStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setWizardStep((s) => s - 1)}
+                  className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  ← Zurück
+                </button>
+              ) : (
+                <span />
+              )}
+              {wizardStep < 7 ? (
+                <button
+                  type="button"
+                  onClick={() => setWizardStep((s) => s + 1)}
+                  className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                >
+                  Weiter →
+                </button>
+              ) : null}
             </div>
           </div>
         </section>

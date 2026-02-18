@@ -9,7 +9,7 @@ export const DEFAULT_SYSTEM_CONTEXT = `You are creating a single static advertis
 2. NO HALLUCINATION: Do not add text, logos, or claims that are not clearly requested. Do not invent product names. Do not make diagnostic, treatment, or medical cure claims—only show a self-test product in a positive, trustworthy way.
 3. COMPOSITION: One clear focal point (the test kit). Clean background suitable for ads: neutral, soft gradient, or simple lifestyle context (e.g. hand holding kit, on a table). No clutter.
 4. STYLE: Professional, trustworthy, high-quality product photography style. Bright, clear, suitable for digital advertising. No cartoon or fantasy unless explicitly requested.
-5. TEXT ON IMAGE: Only if the hook is short and you are sure it can be rendered legibly, integrate it subtly (e.g. as overlay). Prefer showing the product prominently without text if the hook is long—the hook will be used as ad copy separately.
+5. TEXT ON IMAGE: Only if the hook is short and you are sure it can be rendered legibly, integrate it subtly (e.g. as overlay). Prefer showing the product prominently without text if the hook is long—the hook will be used as ad copy separately. When reference images are used for inspiration (style/layout), never copy any text or headlines from those references; use only the hook and USPs provided in this prompt.
 6. AUDIENCE: German-speaking consumers looking for at-home health tests. Convey trust and clarity. If any text is added to the image (e.g. from the hook), use informal "du" form (address the viewer as "du"), not formal "Sie".`;
 
 /** Max hook length to reduce moderation risk and API limits. */
@@ -82,7 +82,7 @@ export function buildAdPrompt(
 
   const refInstruction = hasReferenceImage
     ? (referenceCount && referenceCount > 1
-        ? "Multiple reference images provided: use the first as the exact product to depict (keep appearance identical). Use the other images as style, composition, and layout inspiration (e.g. mood, framing, headline placement). Only adjust composition, background, or layout to create an ad image in the requested aspect ratio."
+        ? "Multiple reference images provided: (1) Use the first image as the exact product to depict (keep appearance identical). (2) Use the other images ONLY as style, composition, and layout inspiration (mood, framing, where to leave space for text). Do NOT copy, reproduce, or use any text, headlines, slogans, or wording from those inspiration images. All content and messaging must come only from the hook and USPs given in this prompt. The inspiration images show how to arrange the scene, not what to write."
         : "Use the provided reference image as the exact product. Keep the product appearance identical; only adjust composition, background, or layout to create an ad image in the requested aspect ratio.")
     : "Depict a generic, professional-looking at-home test kit appropriate for the product type. Do not invent specific brand logos; keep packaging neutral and credible.";
 
