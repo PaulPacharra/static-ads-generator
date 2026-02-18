@@ -859,12 +859,14 @@ export default function Home() {
                 {analyzeResult && (
                   <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
                     {analyzeResult.structure?.zones?.length ? (
-                      <p className="mb-2 text-xs font-medium text-slate-500">Struktur</p>
-                      <ul className="mb-2 list-inside list-disc text-slate-700">
-                        {analyzeResult.structure.zones.map((z, i) => (
-                          <li key={i}>{z}</li>
-                        ))}
-                      </ul>
+                      <>
+                        <p className="mb-2 text-xs font-medium text-slate-500">Struktur</p>
+                        <ul className="mb-2 list-inside list-disc text-slate-700">
+                          {analyzeResult.structure.zones.map((z, i) => (
+                            <li key={i}>{z}</li>
+                          ))}
+                        </ul>
+                      </>
                     ) : null}
                     {analyzeResult.extractedText?.usps?.length ? (
                       <div className="mb-2">
