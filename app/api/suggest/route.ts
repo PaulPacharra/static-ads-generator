@@ -81,7 +81,7 @@ Vorgaben:
 - hooks: 8–10 kurze Werbe-Hooks (je ein Satz, max. ca. 15 Wörter), die als Aufhänger für Bild-Anzeigen dienen.
 - headlines: 5–6 kurze Schlagzeilen für Anzeigen.
 - descriptions: 3–4 kurze Anzeigentexte (1–2 Sätze) für die Anzeigenbeschreibung.
-- usps: 6–8 kurze Unique Selling Points (je 2–4 Wörter), wie sie in Lifestyle-Ads unten unter Icons stehen (z.B. „Schnelle Ergebnisse“, „Diskret & Sicher“, „Sichere Übermittlung“). Keine Sätze, nur prägnante Stichpunkte.
+- usps: genau 9 kurze Unique Selling Points (je 2–4 Wörter), wie sie in Lifestyle-Ads unten unter Icons stehen (z.B. „Schnelle Ergebnisse“, „Diskret & Sicher“, „Sichere Übermittlung“). Keine Sätze, nur prägnante Stichpunkte – der Nutzer wählt davon 3 aus.
 
 Alles auf Deutsch, an den Kontext angepasst. Durchgehend Du-Form (die Kund:innen werden geduzt, keine Sie-Form).`;
 

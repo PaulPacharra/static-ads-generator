@@ -898,13 +898,16 @@ export default function Home() {
               />
             </div>
 
-            {/* Deine 3 USPs – klare Slots + Vorschläge zuweisbar */}
+            {/* Deine 3 USPs – selbst eintippen oder 3 aus KI-Vorschlägen wählen */}
             <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5">
               <h3 className="mb-1 text-sm font-semibold text-slate-800">
                 Deine 3 USPs für die Feature-Zeile
               </h3>
+              <p className="mb-2 text-xs text-slate-500">
+                Bei Lifestyle-Ads erscheinen unten drei kurze Stichpunkte (z. B. „Schnelle Ergebnisse“, „Diskret & Sicher“). Du kannst sie <strong>selbst eintippen</strong> oder <strong>3 aus den KI-Vorschlägen wählen</strong>.
+              </p>
               <p className="mb-4 text-xs text-slate-500">
-                Bei Lifestyle-Ads erscheinen unten drei kurze Stichpunkte (z. B. „Schnelle Ergebnisse“, „Diskret & Sicher“). Hier die drei Texte eintragen oder aus den Vorschlägen unten in Slot 1, 2 oder 3 übernehmen.
+                Vorschläge bekommst du, wenn du oben auf „Ideen & Hooks vorschlagen“ klickst – dann erscheinen hier bis zu 9 USPs. Per Klick auf <strong>→1</strong>, <strong>→2</strong> oder <strong>→3</strong> weist du einen Vorschlag einem Slot zu, oder „Alle 3 übernehmen“ für die ersten drei.
               </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 {([0, 1, 2] as const).map((i) => (
@@ -925,7 +928,7 @@ export default function Home() {
               {(suggestResult?.usps?.length || analyzeResult?.extractedText?.usps?.length) ? (
                 <div className="mt-4 border-t border-slate-200 pt-4">
                   <p className="mb-2 text-xs font-medium text-slate-600">
-                    Vorschläge – in Slot übernehmen
+                    KI-Vorschläge – wähle 3 aus (→1, →2, →3) oder „Alle 3 übernehmen“
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     {(suggestResult?.usps ?? analyzeResult?.extractedText?.usps ?? []).map((u, idx) => (
