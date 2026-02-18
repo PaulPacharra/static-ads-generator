@@ -6,6 +6,7 @@ export type SuggestResponse = {
   hooks: string[];
   headlines?: string[];
   descriptions?: string[];
+  usps?: string[];
 };
 
 export async function POST(request: Request) {
@@ -72,13 +73,15 @@ Antworte NUR mit einem einzigen JSON-Objekt (kein anderer Text), Format:
 {
   "hooks": ["Kurzer Werbe-Hook 1", "Hook 2", ...],
   "headlines": ["Schlagzeile 1", "Schlagzeile 2", ...],
-  "descriptions": ["Kurzer Anzeigentext 1 (1-2 Sätze)", ...]
+  "descriptions": ["Kurzer Anzeigentext 1 (1-2 Sätze)", ...],
+  "usps": ["USP 1 (2–4 Wörter)", "USP 2", "USP 3", ...]
 }
 
 Vorgaben:
 - hooks: 5–6 kurze Werbe-Hooks (je ein Satz, max. ca. 15 Wörter), die als Aufhänger für Bild-Anzeigen dienen.
 - headlines: 3–4 kurze Schlagzeilen für Anzeigen.
 - descriptions: 2–3 kurze Anzeigentexte (1–2 Sätze) für die Anzeigenbeschreibung.
+- usps: genau 3 kurze Unique Selling Points (je 2–4 Wörter), wie sie in Lifestyle-Ads unten unter Icons stehen (z.B. „Schnelle Ergebnisse“, „Diskret & Sicher“, „Sichere Übermittlung“). Keine Sätze, nur prägnante Stichpunkte.
 
 Alles auf Deutsch, an den Kontext angepasst. Durchgehend Du-Form (die Kund:innen werden geduzt, keine Sie-Form).`;
 
@@ -103,6 +106,7 @@ Alles auf Deutsch, an den Kontext angepasst. Durchgehend Du-Form (die Kund:innen
       hooks?: string[];
       headlines?: string[];
       descriptions?: string[];
+      usps?: string[];
     };
     const hooks = Array.isArray(parsed.hooks)
       ? parsed.hooks.filter((h) => typeof h === "string" && h.trim())
@@ -113,11 +117,15 @@ Alles auf Deutsch, an den Kontext angepasst. Durchgehend Du-Form (die Kund:innen
     const descriptions = Array.isArray(parsed.descriptions)
       ? parsed.descriptions.filter((d) => typeof d === "string" && d.trim())
       : [];
+    const usps = Array.isArray(parsed.usps)
+      ? parsed.usps.filter((u) => typeof u === "string" && u.trim()).slice(0, 5)
+      : [];
 
     return NextResponse.json({
       hooks,
       headlines: headlines.length > 0 ? headlines : undefined,
       descriptions: descriptions.length > 0 ? descriptions : undefined,
+      usps: usps.length > 0 ? usps : undefined,
     } satisfies SuggestResponse);
   } catch (e) {
     console.error("Suggest API error:", e);

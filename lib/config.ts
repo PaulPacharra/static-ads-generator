@@ -1,48 +1,53 @@
 /**
- * Ad formats for Google & Meta (KIE Flux Kontext supports these aspect ratios).
+ * Ad formats – nur 9:16 und 1:1, jeweils 2 Varianten pro Format (4 Ads gesamt).
  */
 export const AD_FORMATS = [
-  { id: "1:1", label: "1:1 (Square)", ratio: "1:1", description: "Social, Feed" },
-  { id: "16:9", label: "16:9 (Landscape)", ratio: "16:9", description: "Display, YouTube" },
-  { id: "4:3", label: "4:3", ratio: "4:3", description: "Classic" },
-  { id: "3:4", label: "3:4 (Portrait)", ratio: "3:4", description: "Feed Portrait" },
   { id: "9:16", label: "9:16 (Stories)", ratio: "9:16", description: "Stories, Reels" },
-  { id: "21:9", label: "21:9 (Ultra-wide)", ratio: "21:9", description: "Cinematic" },
+  { id: "1:1", label: "1:1 (Square)", ratio: "1:1", description: "Social, Feed" },
 ] as const;
+
+/** Wie viele Ads pro Format erzeugt werden. */
+export const COPIES_PER_FORMAT = 2;
 
 export type AspectRatio = (typeof AD_FORMATS)[number]["ratio"];
 
-/** Medium = für welches Netzwerk die Ads sind → bestimmt die Formate. */
+/** Medium = für welches Netzwerk die Ads sind. Es werden immer 2× 9:16 und 2× 1:1 erstellt. */
 export const MEDIA_OPTIONS = [
   {
     id: "google",
     label: "Google Ads",
-    description: "Responsive, Display, YouTube – 1:1, 16:9, 4:3, 9:16",
-    formatRatios: ["1:1", "16:9", "4:3", "9:16"] as const,
+    description: "2× 9:16, 2× 1:1",
+    formatRatios: ["9:16", "1:1"] as const,
   },
   {
     id: "meta",
     label: "Meta (Facebook & Instagram)",
-    description: "Feed & Stories – 1:1, 3:4, 9:16",
-    formatRatios: ["1:1", "3:4", "9:16"] as const,
+    description: "2× 9:16, 2× 1:1",
+    formatRatios: ["9:16", "1:1"] as const,
   },
   {
     id: "all",
     label: "Alle Formate",
-    description: "Google + Meta + Ultra-wide – alle 6 Formate",
-    formatRatios: ["1:1", "16:9", "4:3", "3:4", "9:16", "21:9"] as const,
+    description: "2× 9:16, 2× 1:1",
+    formatRatios: ["9:16", "1:1"] as const,
   },
 ] as const;
 
 export type MediaId = (typeof MEDIA_OPTIONS)[number]["id"];
 
-/** Liefert die zu generierenden Formate für das gewählte Medium. */
+/** Liefert die zu generierenden Formate – jedes Format COPIES_PER_FORMAT mal (z.B. 2× 9:16, 2× 1:1). */
 export function getFormatsForMedium(mediumId: MediaId) {
   const option = MEDIA_OPTIONS.find((m) => m.id === mediumId);
-  if (!option) return [...AD_FORMATS];
-  return AD_FORMATS.filter((f) =>
-    (option.formatRatios as readonly string[]).includes(f.ratio)
-  );
+  const formats = option
+    ? AD_FORMATS.filter((f) =>
+        (option.formatRatios as readonly string[]).includes(f.ratio)
+      )
+    : [...AD_FORMATS];
+  const result: typeof AD_FORMATS[number][] = [];
+  for (let i = 0; i < COPIES_PER_FORMAT; i++) {
+    result.push(...formats);
+  }
+  return result;
 }
 
 /**

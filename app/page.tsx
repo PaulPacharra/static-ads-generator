@@ -80,10 +80,22 @@ export default function Home() {
     hooks: string[];
     headlines?: string[];
     descriptions?: string[];
+    usps?: string[];
+  } | null>(null);
+  /** Für Lifestyle-Ads: diese USPs werden im Prompt als Feature-Zeile unten berücksichtigt. */
+  const [selectedUsps, setSelectedUsps] = useState<string[]>([]);
+  const [analyzeAdUrl, setAnalyzeAdUrl] = useState("");
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzeResult, setAnalyzeResult] = useState<{
+    structure?: { zones?: string[] };
+    extractedText?: { headline?: string; subline?: string; usps?: string[] };
+    mood?: string;
   } | null>(null);
   const [kieCredits, setKieCredits] = useState<number | null>(null);
   type RefImageLib = { id: string; url: string; label: string | null };
   const [refImagesLibrary, setRefImagesLibrary] = useState<RefImageLib[]>([]);
+  const [librarySaveMessage, setLibrarySaveMessage] = useState<string | null>(null);
+  const [librarySaving, setLibrarySaving] = useState(false);
 
   const fetchCredits = useCallback(() => {
     fetch("/api/credits")
@@ -98,12 +110,42 @@ export default function Home() {
     fetchCredits();
   }, [fetchCredits]);
 
-  useEffect(() => {
+  const loadRefImagesLibrary = useCallback(() => {
     fetch("/api/reference-images")
       .then((r) => r.json())
       .then((data) => Array.isArray(data) && setRefImagesLibrary(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadRefImagesLibrary();
+  }, [loadRefImagesLibrary]);
+
+  const saveUrlToLibrary = useCallback(async (url: string, label?: string) => {
+    const u = url?.trim();
+    if (!u || !u.startsWith("https://")) {
+      setLibrarySaveMessage("Bitte eine gültige URL (https://…) eingeben.");
+      return;
+    }
+    setLibrarySaving(true);
+    setLibrarySaveMessage(null);
+    try {
+      const res = await fetch("/api/reference-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: u, label: label?.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Speichern fehlgeschlagen");
+      loadRefImagesLibrary();
+      setLibrarySaveMessage("Gespeichert – erscheint im Picker unten.");
+      setTimeout(() => setLibrarySaveMessage(null), 3000);
+    } catch (e) {
+      setLibrarySaveMessage(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+    } finally {
+      setLibrarySaving(false);
+    }
+  }, [loadRefImagesLibrary]);
 
   // Produkte aus DB laden
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -380,6 +422,7 @@ export default function Home() {
           includePerson,
           adStyle,
           ...refPayload,
+          ...(adStyle === "lifestyle" && selectedUsps.length >= 2 && { usps: selectedUsps.slice(0, 3) }),
           customSystemPrompt: customSystemPrompt.trim() || undefined,
         }),
       });
@@ -461,6 +504,7 @@ export default function Home() {
     medium,
     includePerson,
     adStyle,
+    selectedUsps,
     productReferenceImage,
     inspirationImages,
     customSystemPrompt,
@@ -536,7 +580,38 @@ export default function Home() {
               Einstellungen
             </h2>
           </div>
-          <div className="space-y-6 p-6 sm:p-8">
+          <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 lg:grid-cols-[280px_1fr]">
+            <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Erklärungen
+                </h3>
+                <ul className="space-y-4 text-sm text-slate-600">
+                  <li>
+                    <span className="font-medium text-slate-800">Heimtest</span> – Wähle das Produkt, für das Ads erstellt werden. Name und Infos fließen in die KI-Prompts ein. Produkte legst du unter Admin an.
+                  </li>
+                  <li>
+                    <span className="font-medium text-slate-800">Medium</span> – Nur zur Einordnung; es werden immer 2× 9:16 und 2× 1:1 erstellt (Stories + Quadrat).
+                  </li>
+                  <li>
+                    <span className="font-medium text-slate-800">Ideen & USPs</span> – ChatGPT schlägt Hooks, Schlagzeilen und 3 USPs vor. Klick übernimmt. Optional: Referenz-Ad per Bild-URL analysieren und USPs extrahieren.
+                  </li>
+                  <li>
+                    <span className="font-medium text-slate-800">Hook</span> – Der zentrale Werbesatz bzw. Aufhänger für die Anzeige. Wird an die Bild-KI übergeben und steuert Stimmung und Botschaft.
+                  </li>
+                  <li>
+                    <span className="font-medium text-slate-800">Person & Stil</span> – Mit Person/Paar wirkt die Anzeige lebensnäher. Lifestyle-Stil reserviert oben/unten Platz für Headline und Feature-Zeile (wie bei Referenz-Ads).
+                  </li>
+                  <li>
+                    <span className="font-medium text-slate-800">Referenzbilder</span> – Erstes Feld: euer Produktbild (Verpackung/Kit). Darunter: bis zu 7 Ads als Inspiration für Stil und Aufbau. URLs in der Bibliothek speichern und im Picker auswählen.
+                  </li>
+                  <li>
+                    <span className="font-medium text-slate-800">Generieren</span> – Startet die Erstellung von 4 Ads (2× 9:16, 2× 1:1). KIE nutzt Hook, Referenzbilder und ggf. USPs für die Bildkomposition.
+                  </li>
+                </ul>
+              </div>
+            </aside>
+            <div className="space-y-6">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Heimtest
@@ -632,6 +707,7 @@ export default function Home() {
                       hooks: data.hooks ?? [],
                       headlines: data.headlines,
                       descriptions: data.descriptions,
+                      usps: data.usps,
                     });
                   } catch (e) {
                     setSuggestError(
@@ -709,8 +785,114 @@ export default function Home() {
                         </ul>
                       </div>
                     )}
+                  {suggestResult.usps && suggestResult.usps.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-slate-500">
+                        USPs (für Feature-Zeile in Lifestyle-Ads)
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {suggestResult.usps.map((u, i) => (
+                          <span
+                            key={i}
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-800"
+                          >
+                            {u}
+                          </span>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUsps(suggestResult.usps ?? [])}
+                          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                        >
+                          Für Generierung nutzen
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <p className="mb-2 text-xs font-semibold text-slate-600">
+                  Referenz-Ad mit Vision analysieren
+                </p>
+                <p className="mb-2 text-xs text-slate-500">
+                  Bild-URL einer bestehenden Ad eingeben – ChatGPT erkennt Struktur, Texte und USPs.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="url"
+                    value={analyzeAdUrl}
+                    onChange={(e) => setAnalyzeAdUrl(e.target.value)}
+                    placeholder="https://… (Bild-URL der Referenz-Ad)"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={analyzeLoading || !analyzeAdUrl.trim().startsWith("https://")}
+                    onClick={async () => {
+                      setAnalyzeLoading(true);
+                      setAnalyzeResult(null);
+                      try {
+                        const res = await fetch("/api/analyze-ad", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ imageUrl: analyzeAdUrl.trim() }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error ?? "Fehler");
+                        setAnalyzeResult(data);
+                      } catch (e) {
+                        setAnalyzeResult({
+                          extractedText: {},
+                          mood: e instanceof Error ? e.message : "Analyse fehlgeschlagen",
+                        });
+                      } finally {
+                        setAnalyzeLoading(false);
+                      }
+                    }}
+                    className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {analyzeLoading ? "Analysiere …" : "Analysieren"}
+                  </button>
+                </div>
+                {analyzeResult && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                    {analyzeResult.structure?.zones?.length ? (
+                      <p className="mb-2 text-xs font-medium text-slate-500">Struktur</p>
+                      <ul className="mb-2 list-inside list-disc text-slate-700">
+                        {analyzeResult.structure.zones.map((z, i) => (
+                          <li key={i}>{z}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {analyzeResult.extractedText?.usps?.length ? (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-slate-500">Erkannte USPs</p>
+                        <div className="flex flex-wrap gap-2">
+                          {analyzeResult.extractedText.usps.map((u, i) => (
+                            <span key={i} className="rounded bg-slate-100 px-2 py-0.5 text-slate-800">
+                              {u}
+                            </span>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedUsps(analyzeResult.extractedText?.usps ?? [])
+                            }
+                            className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 hover:bg-indigo-200"
+                          >
+                            USPs übernehmen
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {analyzeResult.mood && (
+                      <p className="text-xs text-slate-600">Stimmung: {analyzeResult.mood}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -767,6 +949,25 @@ export default function Home() {
                   Lifestyle (Person, Platz für Headline und Features)
                 </option>
               </select>
+              {adStyle === "lifestyle" && selectedUsps.length >= 2 && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2">
+                  <span className="text-xs font-medium text-indigo-800">
+                    USPs für Feature-Zeile:
+                  </span>
+                  {selectedUsps.slice(0, 3).map((u, i) => (
+                    <span key={i} className="text-sm text-indigo-900">
+                      {u}
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedUsps([])}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    Zurücksetzen
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
@@ -828,7 +1029,20 @@ export default function Home() {
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      productReferenceImage.url?.trim() &&
+                      saveUrlToLibrary(productReferenceImage.url.trim())
+                    }
+                    disabled={
+                      !productReferenceImage.url?.trim()?.startsWith("https://") || librarySaving
+                    }
+                    className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                  >
+                    {librarySaving ? "…" : "✓ In Bibliothek speichern"}
+                  </button>
                   <button
                     type="button"
                     onClick={triggerProductRefFileSelect}
@@ -868,38 +1082,45 @@ export default function Home() {
                 Ads als Inspiration (optional, max. 7)
               </label>
               <p className="mb-3 text-xs text-slate-500">
-                Fertige Anzeigen, die euch gefallen – für Stil, Layout und Aufbau. URLs, Dateien oder aus der Bibliothek. Google-Drive-Links werden umgewandelt.
+                Fertige Anzeigen, die euch gefallen – für Stil, Layout und Aufbau. URL eintippen → „In Bibliothek speichern“ → danach im Picker auswählen.
               </p>
-              {refImagesLibrary.length > 0 && (
-                <div className="mb-4">
-                  <p className="mb-2 text-xs font-medium text-slate-600">
-                    Aus Bibliothek wählen
-                  </p>
+              {librarySaveMessage && (
+                <p className="mb-3 text-sm text-indigo-700">{librarySaveMessage}</p>
+              )}
+              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                <p className="mb-2 text-xs font-medium text-slate-600">
+                  Gespeicherte Referenzbilder – zum Übernehmen anklicken
+                </p>
+                {refImagesLibrary.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {refImagesLibrary.map((ref) => (
                       <button
                         key={ref.id}
                         type="button"
                         onClick={() => addRefFromLibrary(ref.url)}
-                        className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/50 p-2 transition hover:border-indigo-300 hover:bg-indigo-50/50"
+                        className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-sm transition hover:border-indigo-400 hover:shadow"
                         title={ref.label ?? ref.url}
                       >
                         <img
                           src={getReferenceImagePreviewUrl(ref.url)}
                           alt={ref.label ?? "Referenz"}
-                          className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
+                          className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' fill='%94a3b8'%3E%3Crect width='56' height='56'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%64748b'%3E?%3C/text%3E%3C/svg%3E";
+                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='%94a3b8'%3E%3Crect width='64' height='64'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%64748b'%3E?%3C/text%3E%3C/svg%3E";
                           }}
                         />
-                        <span className="max-w-[72px] truncate text-xs text-slate-600">
+                        <span className="max-w-[80px] truncate text-xs text-slate-600">
                           {ref.label || "Bild"}
                         </span>
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Noch keine gespeichert. URL unten eintippen und „In Bibliothek speichern“ klicken – dann erscheinen sie hier mit Vorschau.
+                  </p>
+                )}
+              </div>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -921,7 +1142,17 @@ export default function Home() {
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => ref.url?.trim() && saveUrlToLibrary(ref.url.trim())}
+                      disabled={
+                        !ref.url?.trim()?.startsWith("https://") || librarySaving
+                      }
+                      className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                    >
+                      {librarySaving ? "…" : "✓ Speichern"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => triggerFileSelect(ref.id)}
@@ -996,6 +1227,7 @@ export default function Home() {
                 ? `Generiere … ${progressLabel}`
                 : `${getFormatsForMedium(medium).length} Ads generieren (${MEDIA_OPTIONS.find((m) => m.id === medium)?.label ?? "Alle"})`}
             </button>
+            </div>
           </div>
         </section>
 

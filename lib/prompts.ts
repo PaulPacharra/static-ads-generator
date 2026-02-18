@@ -35,6 +35,7 @@ function getPersonInstruction(include: IncludePersonOption): string {
 const LIFESTYLE_COMPOSITION = `
 
 7. LIFESTYLE AD LAYOUT (match this style exactly):
+- AD STRUCTURE (keep in image): (1) TOP: space for logo/brand, uncluttered. (2) BELOW: band for 1-2 short text lines in boxes. (3) MAIN: person and optionally product, emotional focus. (4) OVERLAY: space for one large headline on lower image. (5) BOTTOM: clear band for 3 feature callouts (icon + short text) – do not draw text or icons; leave space.
 - Include ONE person in an aspirational, relatable setting: e.g. on a balcony, by a window, or in a bright indoor/outdoor space. Person from chest up or waist up, natural pose (e.g. hand on railing), serene and hopeful expression. Warm, soft lighting (golden hour or bright daylight). Light clothing, professional-casual. Slight bokeh or soft background (sky, trees, city, or room).
 - COMPOSITION FOR TEXT OVERLAYS: Reserve clear visual zones so the image works with overlaid text later:
   * TOP third: Bright, uncluttered area (sky, soft gradient, or very soft blur) where a bold headline would sit. Avoid busy details here.
@@ -48,6 +49,7 @@ const LIFESTYLE_COMPOSITION = `
  * image relevance (KI can depict the right kind of kit, packaging, trust).
  * includePerson: "person" or "couple" adds instructions to show people in the ad.
  * adStyle: "lifestyle" adds composition for headline top + feature bottom (person in scene).
+ * usps: optional 3 USPs for the bottom feature band (layout hint only).
  */
 export function buildAdPrompt(
   productName: string,
@@ -58,7 +60,8 @@ export function buildAdPrompt(
   kitInfo?: string | null,
   includePerson: IncludePersonOption = "none",
   adStyle: AdStyleOption = "standard",
-  referenceCount?: number
+  referenceCount?: number,
+  usps?: string[] | null
 ): string {
   const systemContext =
     customSystemContext?.trim() || DEFAULT_SYSTEM_CONTEXT;
@@ -83,12 +86,20 @@ export function buildAdPrompt(
         : "Use the provided reference image as the exact product. Keep the product appearance identical; only adjust composition, background, or layout to create an ad image in the requested aspect ratio.")
     : "Depict a generic, professional-looking at-home test kit appropriate for the product type. Do not invent specific brand logos; keep packaging neutral and credible.";
 
+  const uspBlock =
+    adStyle === "lifestyle" &&
+    Array.isArray(usps) &&
+    usps.length >= 2 &&
+    usps.slice(0, 3).every((u) => typeof u === "string" && u.trim())
+      ? `\nBottom feature band: Reserve space for exactly 3 short callouts (do not draw text). Suggested labels for layout: "${usps.slice(0, 3).join('", "')}".`
+      : "";
+
   return `${fullSystemContext}
 
 ${productBlock}
 Advertising hook (use as creative direction or short on-image message): "${safeHook}."
 
-${refInstruction}
+${refInstruction}${uspBlock}
 
 Output: One static ad image, professional, ready for use in Google and Meta ads.`;
 }

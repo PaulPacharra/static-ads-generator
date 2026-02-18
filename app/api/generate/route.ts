@@ -22,12 +22,13 @@ export async function POST(request: Request) {
     productName?: string;
     hook: string;
     referenceImageUrl?: string;
-    /** Optional: bis zu 8 Referenzbild-URLs (Produkt + Inspiration). KIE max 8. */
     referenceImageUrls?: string[];
     customSystemPrompt?: string;
     medium?: MediaId;
     includePerson?: "none" | "person" | "couple";
     adStyle?: "standard" | "lifestyle";
+    /** Optional: 3 USPs für Lifestyle-Ads (Platz für Feature-Zeile unten). */
+    usps?: string[];
   };
   try {
     body = await request.json();
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { productId, productName, hook, referenceImageUrl, referenceImageUrls, customSystemPrompt, medium, includePerson, adStyle } = body;
+  const { productId, productName, hook, referenceImageUrl, referenceImageUrls, customSystemPrompt, medium, includePerson, adStyle, usps: bodyUsps } = body;
   if (!hook?.trim()) {
     return NextResponse.json(
       { error: "hook is required" },
@@ -99,6 +100,11 @@ export async function POST(request: Request) {
     }
   }
 
+  const uspsForPrompt =
+    Array.isArray(bodyUsps) && bodyUsps.length >= 2
+      ? bodyUsps.slice(0, 3).filter((u) => typeof u === "string" && u.trim())
+      : undefined;
+
   const prompt = buildAdPrompt(
     productSlug,
     hook.trim(),
@@ -108,7 +114,8 @@ export async function POST(request: Request) {
     productKitInfo,
     includePerson === "person" || includePerson === "couple" ? includePerson : "none",
     adStyle === "lifestyle" ? "lifestyle" : "standard",
-    refUrls.length
+    refUrls.length,
+    uspsForPrompt
   );
 
   const formatsToGenerate = getFormatsForMedium(medium ?? "all");
