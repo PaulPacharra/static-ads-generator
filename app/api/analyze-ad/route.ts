@@ -69,7 +69,12 @@ Erkennbare Texte (Headline, USPs) auf Deutsch extrahieren. USPs: genau 3 kurze S
       );
     }
 
-    const parsed = JSON.parse(raw) as {
+    // ChatGPT liefert oft ```json ... ``` – Markdown entfernen vor dem Parsen
+    let jsonStr = raw.trim();
+    const codeBlock = jsonStr.match(/^```(?:json)?\s*([\s\S]*?)```$/);
+    if (codeBlock) jsonStr = codeBlock[1].trim();
+
+    const parsed = JSON.parse(jsonStr) as {
       structure?: { zones?: string[] };
       extractedText?: { headline?: string; subline?: string; usps?: string[] };
       mood?: string;
