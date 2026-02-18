@@ -54,10 +54,18 @@ export default function Home() {
   const [includePerson, setIncludePerson] = useState<"none" | "person" | "couple">("none");
   const [adStyle, setAdStyle] = useState<"standard" | "lifestyle">("standard");
   type RefImage = { id: string; url?: string; file?: File; preview?: string };
-  const [referenceImages, setReferenceImages] = useState<RefImage[]>(() => [
-    { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+  /** Ein Bild: So sieht euer Heimtest/Produkt aus (Produktfoto, Verpackung). */
+  const [productReferenceImage, setProductReferenceImage] = useState<{
+    url?: string;
+    file?: File;
+    preview?: string;
+  }>({});
+  /** Ads als Inspiration/Orientierung für Stil und Aufbau (max. 7). */
+  const [inspirationImages, setInspirationImages] = useState<RefImage[]>(() => [
+    { id: `insp-${Date.now()}-${Math.random().toString(36).slice(2)}` },
   ]);
   const pendingFileSlotIdRef = useRef<string | null>(null);
+  const pendingFileTargetRef = useRef<"product" | string>("product");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tasks, setTasks] = useState<TaskState[]>([]);
   const [loading, setLoading] = useState(false);
@@ -126,6 +134,18 @@ export default function Home() {
       });
   }, []);
 
+  // Referenzbild des Heimtests aus gewähltem Produkt übernehmen (nur URL, kein File überschreiben)
+  useEffect(() => {
+    if (!productId || products.length === 0) return;
+    const product = products.find((p) => p.id === productId);
+    const productRefUrl = product?.referenceImageUrl?.trim();
+    if (productRefUrl) {
+      setProductReferenceImage((prev) =>
+        prev.file ? prev : { ...prev, url: productRefUrl, preview: undefined }
+      );
+    }
+  }, [productId, products]);
+
   // Last session from localStorage (nach Produkt-Load, damit productId zu einem echten Produkt passt)
   useEffect(() => {
     if (products.length === 0) return;
@@ -179,71 +199,96 @@ export default function Home() {
     }
   }, []);
 
-  const addReferenceImage = useCallback(() => {
-    if (referenceImages.length >= 8) return;
-    setReferenceImages((prev) => [
+  const addInspirationImage = useCallback(() => {
+    if (inspirationImages.length >= 7) return;
+    setInspirationImages((prev) => [
       ...prev,
-      { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+      { id: `insp-${Date.now()}-${Math.random().toString(36).slice(2)}` },
     ]);
-  }, [referenceImages.length]);
+  }, [inspirationImages.length]);
 
   const addRefFromLibrary = useCallback((url: string) => {
-    const emptySlot = referenceImages.find((r) => !r.url?.trim() && !r.file);
+    const emptySlot = inspirationImages.find((r) => !r.url?.trim() && !r.file);
     if (emptySlot) {
-      setReferenceImages((prev) =>
+      setInspirationImages((prev) =>
         prev.map((r) =>
           r.id === emptySlot.id ? { ...r, url, file: undefined, preview: undefined } : r
         )
       );
-    } else if (referenceImages.length < 8) {
-      setReferenceImages((prev) => [
+    } else if (inspirationImages.length < 7) {
+      setInspirationImages((prev) => [
         ...prev,
-        { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}`, url },
+        { id: `insp-${Date.now()}-${Math.random().toString(36).slice(2)}`, url },
       ]);
     }
     setError(null);
-  }, [referenceImages]);
+  }, [inspirationImages]);
 
-  const removeReferenceImage = useCallback((id: string) => {
-    setReferenceImages((prev) => prev.filter((r) => r.id !== id));
+  const removeInspirationImage = useCallback((id: string) => {
+    setInspirationImages((prev) => prev.filter((r) => r.id !== id));
     setError(null);
   }, []);
 
-  const setRefImageUrl = useCallback((id: string, url: string) => {
-    setReferenceImages((prev) =>
+  const setInspirationImageUrl = useCallback((id: string, url: string) => {
+    setInspirationImages((prev) =>
       prev.map((r) => (r.id === id ? { ...r, url: url || undefined, file: undefined, preview: undefined } : r))
     );
     setError(null);
   }, []);
 
-  const onReferenceFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRefFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    const slotId = pendingFileSlotIdRef.current;
     e.target.value = "";
-    pendingFileSlotIdRef.current = null;
-    if (!file || !slotId) return;
+    if (!file) return;
     if (!file.type.startsWith("image/")) {
       setError("Bitte ein Bild (JPEG, PNG, WebP) wählen.");
       return;
     }
-    setReferenceImages((prev) =>
-      prev.map((r) =>
-        r.id === slotId ? { ...r, file, preview: URL.createObjectURL(file), url: undefined } : r
-      )
-    );
+    const target = pendingFileTargetRef.current;
+    if (target === "product") {
+      setProductReferenceImage({ file, preview: URL.createObjectURL(file), url: undefined });
+    } else {
+      const slotId = target;
+      pendingFileSlotIdRef.current = null;
+      setInspirationImages((prev) =>
+        prev.map((r) =>
+          r.id === slotId ? { ...r, file, preview: URL.createObjectURL(file), url: undefined } : r
+        )
+      );
+    }
     setError(null);
   }, []);
 
   const triggerFileSelect = useCallback((slotId: string) => {
+    pendingFileTargetRef.current = slotId;
     pendingFileSlotIdRef.current = slotId;
     setTimeout(() => fileInputRef.current?.click(), 0);
   }, []);
 
-  const resolveReferenceUrls = useCallback(async (): Promise<string[]> => {
-    const urls: string[] = [];
-    for (const ref of referenceImages) {
+  const triggerProductRefFileSelect = useCallback(() => {
+    pendingFileTargetRef.current = "product";
+    setTimeout(() => fileInputRef.current?.click(), 0);
+  }, []);
+
+  const resolveAllReferenceUrls = useCallback(async (): Promise<{ referenceImageUrl?: string; referenceImageUrls: string[] }> => {
+    let productRefUrl: string | undefined;
+    if (productReferenceImage.url?.trim()) {
+      productRefUrl = productReferenceImage.url.trim();
+    } else if (productReferenceImage.file) {
+      const form = new FormData();
+      form.set("file", productReferenceImage.file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Upload fehlgeschlagen");
+      }
+      const { url } = await res.json();
+      if (url) productRefUrl = url;
+    }
+    const inspirationUrls: string[] = [];
+    for (const ref of inspirationImages) {
       if (ref.url?.trim()) {
-        urls.push(ref.url.trim());
+        inspirationUrls.push(ref.url.trim());
         continue;
       }
       if (ref.file) {
@@ -255,11 +300,11 @@ export default function Home() {
           throw new Error(j.error || "Upload fehlgeschlagen");
         }
         const { url } = await res.json();
-        if (url) urls.push(url);
+        if (url) inspirationUrls.push(url);
       }
     }
-    return urls;
-  }, [referenceImages]);
+    return { referenceImageUrl: productRefUrl, referenceImageUrls: inspirationUrls };
+  }, [productReferenceImage, inspirationImages]);
 
   const saveImageToBlob = useCallback(
     async (imageUrl: string, aspectRatio: string): Promise<string | null> => {
@@ -302,11 +347,18 @@ export default function Home() {
     }
     setError(null);
     setLoading(true);
-    let refUrls: string[] = [];
-    const hasRefs = referenceImages.some((r) => r.url?.trim() || r.file);
-    if (hasRefs) {
+    let refPayload: { referenceImageUrl?: string; referenceImageUrls?: string[] } = {};
+    const hasProductRef = productReferenceImage.url?.trim() || productReferenceImage.file;
+    const hasInspiration = inspirationImages.some((r) => r.url?.trim() || r.file);
+    if (hasProductRef || hasInspiration) {
       try {
-        refUrls = await resolveReferenceUrls();
+        const resolved = await resolveAllReferenceUrls();
+        if (resolved.referenceImageUrl || resolved.referenceImageUrls.length > 0) {
+          refPayload = {
+            ...(resolved.referenceImageUrl && { referenceImageUrl: resolved.referenceImageUrl }),
+            ...(resolved.referenceImageUrls.length > 0 && { referenceImageUrls: resolved.referenceImageUrls }),
+          };
+        }
       } catch (e) {
         setError(
           (e instanceof Error ? e.message : "Upload fehlgeschlagen") +
@@ -327,7 +379,7 @@ export default function Home() {
           hook: hook.trim(),
           includePerson,
           adStyle,
-          ...(refUrls.length > 0 ? { referenceImageUrls: refUrls } : {}),
+          ...refPayload,
           customSystemPrompt: customSystemPrompt.trim() || undefined,
         }),
       });
@@ -409,9 +461,10 @@ export default function Home() {
     medium,
     includePerson,
     adStyle,
-    referenceImages,
+    productReferenceImage,
+    inspirationImages,
     customSystemPrompt,
-    resolveReferenceUrls,
+    resolveAllReferenceUrls,
     pollTask,
     saveImageToBlob,
     persistSession,
@@ -750,19 +803,77 @@ export default function Home() {
               )}
             </div>
 
+            {/* 1. Referenzbild deines Heimtests (Produktfoto / Verpackung) */}
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Referenzbilder (optional, max. 8)
+                Referenzbild deines Heimtests
               </label>
               <p className="mb-3 text-xs text-slate-500">
-                Produktbild + Ads die dir gefallen (als Inspiration für Stil &
-                Aufbau). URLs (https://) oder Dateien. Erste Bilder = stärkere
-                Referenz. Google-Drive-Links werden umgewandelt.
+                Ein Bild, das euer Produkt zeigt (Verpackung, Kit, Produktfoto). Wird beim gewählten Heimtest aus dem Admin automatisch vorgeschlagen – hier überschreibbar.
+              </p>
+              <div className="mb-3 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-indigo-50/30 p-3">
+                <div className="min-w-0 flex-1">
+                  <input
+                    type="url"
+                    value={productReferenceImage.url ?? ""}
+                    onChange={(e) =>
+                      setProductReferenceImage((prev) => ({
+                        ...prev,
+                        url: e.target.value || undefined,
+                        file: undefined,
+                        preview: undefined,
+                      }))
+                    }
+                    placeholder="https://… (Produktbild / Verpackung)"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={triggerProductRefFileSelect}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                  >
+                    📁 Datei
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProductReferenceImage({})}
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                  >
+                    Entfernen
+                  </button>
+                </div>
+                {(productReferenceImage.preview || productReferenceImage.url) && (
+                  <div className="w-full">
+                    <img
+                      src={
+                        productReferenceImage.preview ??
+                        getReferenceImagePreviewUrl(productReferenceImage.url ?? "")
+                      }
+                      alt="Heimtest-Referenz"
+                      className="max-h-28 rounded-lg border border-slate-200 object-contain"
+                      onError={(e) => {
+                        if (productReferenceImage.url) e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Ads als Inspiration / Orientierung (Stil, Aufbau) */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Ads als Inspiration (optional, max. 7)
+              </label>
+              <p className="mb-3 text-xs text-slate-500">
+                Fertige Anzeigen, die euch gefallen – für Stil, Layout und Aufbau. URLs, Dateien oder aus der Bibliothek. Google-Drive-Links werden umgewandelt.
               </p>
               {refImagesLibrary.length > 0 && (
                 <div className="mb-4">
                   <p className="mb-2 text-xs font-medium text-slate-600">
-                    Aus Bibliothek wählen (URL wird übernommen)
+                    Aus Bibliothek wählen
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {refImagesLibrary.map((ref) => (
@@ -792,11 +903,11 @@ export default function Home() {
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                onChange={onReferenceFileChange}
+                onChange={handleRefFileChange}
                 ref={fileInputRef}
                 className="hidden"
               />
-              {referenceImages.map((ref) => (
+              {inspirationImages.map((ref) => (
                 <div
                   key={ref.id}
                   className="mb-3 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3"
@@ -805,7 +916,7 @@ export default function Home() {
                     <input
                       type="url"
                       value={ref.url ?? ""}
-                      onChange={(e) => setRefImageUrl(ref.id, e.target.value)}
+                      onChange={(e) => setInspirationImageUrl(ref.id, e.target.value)}
                       placeholder="https://… oder Datei wählen"
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
@@ -820,7 +931,7 @@ export default function Home() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => removeReferenceImage(ref.id)}
+                      onClick={() => removeInspirationImage(ref.id)}
                       className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
                     >
                       Entfernen
@@ -830,7 +941,7 @@ export default function Home() {
                     <div className="w-full">
                       <img
                         src={ref.preview ?? getReferenceImagePreviewUrl(ref.url ?? "")}
-                        alt="Referenz"
+                        alt="Inspiration"
                         className="max-h-28 rounded-lg border border-slate-200 object-contain"
                         onError={(e) => {
                           if (ref.url) e.currentTarget.style.display = "none";
@@ -840,13 +951,13 @@ export default function Home() {
                   )}
                 </div>
               ))}
-              {referenceImages.length < 8 && (
+              {inspirationImages.length < 7 && (
                 <button
                   type="button"
-                  onClick={addReferenceImage}
+                  onClick={addInspirationImage}
                   className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-indigo-400 hover:bg-indigo-50/50 hover:text-indigo-700"
                 >
-                  + Bild hinzufügen (URL oder Datei)
+                  + Inspiration hinzufügen (URL oder Datei)
                 </button>
               )}
             </div>
@@ -860,11 +971,12 @@ export default function Home() {
                     oder weniger Referenzbilder testen.
                   </p>
                 )}
-                {referenceImages.length > 0 && (
+                {(productReferenceImage.url || productReferenceImage.file || inspirationImages.some((r) => r.url?.trim() || r.file)) && (
                   <button
                     type="button"
                     onClick={() => {
-                      setReferenceImages([]);
+                      setProductReferenceImage({});
+                      setInspirationImages([{ id: `insp-${Date.now()}-${Math.random().toString(36).slice(2)}` }]);
                       setError(null);
                     }}
                     className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
