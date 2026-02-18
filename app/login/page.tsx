@@ -67,7 +67,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-indigo-600 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="w-full rounded-xl bg-[#0E4D2F] py-2.5 font-medium text-white hover:bg-[#0b3c24] disabled:opacity-50"
         >
           {loading ? "Wird angemeldet …" : "Anmelden"}
         </button>

@@ -722,7 +722,7 @@ export default function Home() {
                   }
                 }}
                 disabled={suggestLoading}
-                className="rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-50"
+                className="rounded-xl bg-[#0E4D2F] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#0b3c24] disabled:opacity-50"
               >
                 {suggestLoading ? "Ideen werden erstellt …" : "Ideen & Hooks vorschlagen"}
               </button>
@@ -834,7 +834,7 @@ export default function Home() {
                         setAnalyzeLoading(false);
                       }
                     }}
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                    className="rounded-lg bg-[#0E4D2F] px-3 py-2 text-sm font-medium text-white hover:bg-[#0b3c24] disabled:opacity-50"
                   >
                     {analyzeLoading ? "Analysiere …" : "Analysieren"}
                   </button>
@@ -1300,7 +1300,7 @@ export default function Home() {
             <button
               onClick={handleGenerate}
               disabled={loading}
-              className="w-full rounded-xl bg-indigo-600 px-5 py-4 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/25 disabled:opacity-50 sm:w-auto sm:px-8"
+              className="w-full rounded-xl bg-[#0E4D2F] px-5 py-4 font-semibold text-white shadow-lg shadow-[#0E4D2F]/40 transition hover:bg-[#0b3c24] hover:shadow-xl hover:shadow-[#0E4D2F]/50 disabled:opacity-50 sm:w-auto sm:px-8"
             >
               {loading
                 ? `Generiere … ${progressLabel}`
@@ -1325,7 +1325,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setWizardStep((s) => s + 1)}
-                  className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                  className="rounded-xl bg-[#0E4D2F] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3c24]"
                 >
                   Weiter →
                 </button>

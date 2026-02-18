@@ -264,7 +264,7 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-xl bg-[#0E4D2F] px-5 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#0b3c24] disabled:opacity-50"
               >
                 {editing ? "Speichern" : "Anlegen"}
               </button>
@@ -358,7 +358,7 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={refSaving}
-                className="rounded-xl bg-indigo-600 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-xl bg-[#0E4D2F] px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-[#0b3c24] disabled:opacity-50"
               >
                 {refSaving ? "Speichern …" : "Hinzufügen"}
               </button>
