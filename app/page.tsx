@@ -7,6 +7,7 @@ import {
   getFormatsForMedium,
   type MediaId,
 } from "@/lib/config";
+import { getReferenceImagePreviewUrl } from "@/lib/reference-image-preview";
 
 const STORAGE_KEY = "static-ads-last-session";
 
@@ -73,6 +74,8 @@ export default function Home() {
     descriptions?: string[];
   } | null>(null);
   const [kieCredits, setKieCredits] = useState<number | null>(null);
+  type RefImageLib = { id: string; url: string; label: string | null };
+  const [refImagesLibrary, setRefImagesLibrary] = useState<RefImageLib[]>([]);
 
   const fetchCredits = useCallback(() => {
     fetch("/api/credits")
@@ -86,6 +89,13 @@ export default function Home() {
   useEffect(() => {
     fetchCredits();
   }, [fetchCredits]);
+
+  useEffect(() => {
+    fetch("/api/reference-images")
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) && setRefImagesLibrary(data))
+      .catch(() => {});
+  }, []);
 
   // Produkte aus DB laden
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -176,6 +186,23 @@ export default function Home() {
       { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}` },
     ]);
   }, [referenceImages.length]);
+
+  const addRefFromLibrary = useCallback((url: string) => {
+    const emptySlot = referenceImages.find((r) => !r.url?.trim() && !r.file);
+    if (emptySlot) {
+      setReferenceImages((prev) =>
+        prev.map((r) =>
+          r.id === emptySlot.id ? { ...r, url, file: undefined, preview: undefined } : r
+        )
+      );
+    } else if (referenceImages.length < 8) {
+      setReferenceImages((prev) => [
+        ...prev,
+        { id: `ref-${Date.now()}-${Math.random().toString(36).slice(2)}`, url },
+      ]);
+    }
+    setError(null);
+  }, [referenceImages]);
 
   const removeReferenceImage = useCallback((id: string) => {
     setReferenceImages((prev) => prev.filter((r) => r.id !== id));
@@ -732,6 +759,36 @@ export default function Home() {
                 Aufbau). URLs (https://) oder Dateien. Erste Bilder = stärkere
                 Referenz. Google-Drive-Links werden umgewandelt.
               </p>
+              {refImagesLibrary.length > 0 && (
+                <div className="mb-4">
+                  <p className="mb-2 text-xs font-medium text-slate-600">
+                    Aus Bibliothek wählen (URL wird übernommen)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {refImagesLibrary.map((ref) => (
+                      <button
+                        key={ref.id}
+                        type="button"
+                        onClick={() => addRefFromLibrary(ref.url)}
+                        className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/50 p-2 transition hover:border-indigo-300 hover:bg-indigo-50/50"
+                        title={ref.label ?? ref.url}
+                      >
+                        <img
+                          src={getReferenceImagePreviewUrl(ref.url)}
+                          alt={ref.label ?? "Referenz"}
+                          className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' fill='%94a3b8'%3E%3Crect width='56' height='56'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%64748b'%3E?%3C/text%3E%3C/svg%3E";
+                          }}
+                        />
+                        <span className="max-w-[72px] truncate text-xs text-slate-600">
+                          {ref.label || "Bild"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -772,7 +829,7 @@ export default function Home() {
                   {(ref.preview || ref.url) && (
                     <div className="w-full">
                       <img
-                        src={ref.preview ?? ref.url}
+                        src={ref.preview ?? getReferenceImagePreviewUrl(ref.url ?? "")}
                         alt="Referenz"
                         className="max-h-28 rounded-lg border border-slate-200 object-contain"
                         onError={(e) => {

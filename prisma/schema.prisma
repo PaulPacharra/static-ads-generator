@@ -18,3 +18,10 @@ model Product {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
+
+model ReferenceImage {
+  id        String   @id @default(cuid())
+  url       String   // Gespeicherte Bild-URL (z. B. Google Drive, CDN)
+  label     String?  // Optionaler Anzeigename
+  createdAt DateTime @default(now())
+}

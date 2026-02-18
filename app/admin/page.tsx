@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getReferenceImagePreviewUrl } from "@/lib/reference-image-preview";
 
 type Product = {
   id: string;
@@ -10,6 +11,13 @@ type Product = {
   description: string | null;
   kitInfo: string | null;
   referenceImageUrl: string | null;
+};
+
+type ReferenceImage = {
+  id: string;
+  url: string;
+  label: string | null;
+  createdAt: string;
 };
 
 export default function AdminPage() {
@@ -25,6 +33,10 @@ export default function AdminPage() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [refImages, setRefImages] = useState<ReferenceImage[]>([]);
+  const [refUrl, setRefUrl] = useState("");
+  const [refLabel, setRefLabel] = useState("");
+  const [refSaving, setRefSaving] = useState(false);
 
   const load = useCallback(() => {
     fetch("/api/products")
@@ -32,9 +44,20 @@ export default function AdminPage() {
       .then((data) => Array.isArray(data) && setProducts(data));
   }, []);
 
+  const loadRefImages = useCallback(() => {
+    fetch("/api/reference-images")
+      .then((r) => r.json())
+      .then((data) => Array.isArray(data) && setRefImages(data))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    loadRefImages();
+  }, [loadRefImages]);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +121,42 @@ export default function AdminPage() {
     if (!confirm("Produkt wirklich löschen?")) return;
     const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
     if (res.ok) load();
+  };
+
+  const addRefImage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refUrl.trim().startsWith("https://")) {
+      setMessage("Bitte eine gültige URL (https://…) eingeben.");
+      return;
+    }
+    setRefSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/reference-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: refUrl.trim(), label: refLabel.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Fehler");
+      setMessage("Referenzbild gespeichert.");
+      setRefUrl("");
+      setRefLabel("");
+      loadRefImages();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setRefSaving(false);
+    }
+  };
+
+  const removeRefImage = async (id: string) => {
+    if (!confirm("Referenzbild aus der Bibliothek entfernen?")) return;
+    const res = await fetch(`/api/reference-images/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      loadRefImages();
+      setMessage("Referenzbild entfernt.");
+    }
   };
 
   return (
@@ -269,6 +328,83 @@ export default function AdminPage() {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg shadow-slate-200/50 sm:rounded-3xl">
+          <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-4 sm:px-8">
+            <h2 className="text-base font-semibold tracking-tight text-slate-800 sm:text-lg">
+              Referenzbilder-Bibliothek
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              URLs hier speichern – im Generator können sie per Klick übernommen werden. Google-Drive-Links zeigen eine Vorschau.
+            </p>
+          </div>
+          <div className="space-y-4 p-6 sm:p-8">
+            <form onSubmit={addRefImage} className="flex flex-wrap gap-3">
+              <input
+                type="url"
+                value={refUrl}
+                onChange={(e) => setRefUrl(e.target.value)}
+                placeholder="https://… (z.B. Google Drive Link)"
+                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+              <input
+                type="text"
+                value={refLabel}
+                onChange={(e) => setRefLabel(e.target.value)}
+                placeholder="Name (optional)"
+                className="w-40 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+              <button
+                type="submit"
+                disabled={refSaving}
+                className="rounded-xl bg-indigo-600 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {refSaving ? "Speichern …" : "Hinzufügen"}
+              </button>
+            </form>
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {refImages.map((ref) => (
+                <li
+                  key={ref.id}
+                  className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-3"
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                      <img
+                        src={getReferenceImagePreviewUrl(ref.url)}
+                        alt={ref.label ?? "Vorschau"}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='%94a3b8'%3E%3Crect width='64' height='64'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%64748b'%3E?%3C/text%3E%3C/svg%3E";
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-800">
+                        {ref.label || "Ohne Name"}
+                      </p>
+                      <p className="truncate text-xs text-slate-500" title={ref.url}>
+                        {ref.url}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeRefImage(ref.id)}
+                    className="self-start rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                  >
+                    Entfernen
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {refImages.length === 0 && (
+              <p className="text-sm text-slate-500">
+                Noch keine Referenzbilder. URL oben eingeben und „Hinzufügen“ klicken.
+              </p>
+            )}
+          </div>
         </section>
       </div>
     </div>
