@@ -82,8 +82,16 @@ export default function Home() {
     descriptions?: string[];
     usps?: string[];
   } | null>(null);
-  /** Für Lifestyle-Ads: diese USPs werden im Prompt als Feature-Zeile unten berücksichtigt. */
-  const [selectedUsps, setSelectedUsps] = useState<string[]>([]);
+  /** Für Lifestyle-Ads: genau 3 Slots für die Feature-Zeile (unten in der Ad). */
+  const [selectedUsps, setSelectedUsps] = useState<string[]>(["", "", ""]);
+  const setUspSlot = useCallback((index: 0 | 1 | 2, value: string) => {
+    setSelectedUsps((prev) => {
+      const next = [...prev.slice(0, 3)];
+      while (next.length < 3) next.push("");
+      next[index] = value;
+      return next;
+    });
+  }, []);
   const [analyzeAdUrl, setAnalyzeAdUrl] = useState("");
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState<{
@@ -422,7 +430,7 @@ export default function Home() {
           includePerson,
           adStyle,
           ...refPayload,
-          ...(adStyle === "lifestyle" && selectedUsps.length >= 2 && { usps: selectedUsps.slice(0, 3) }),
+          ...(adStyle === "lifestyle" && selectedUsps.filter(Boolean).length >= 2 && { usps: selectedUsps.slice(0, 3).filter(Boolean) }),
           customSystemPrompt: customSystemPrompt.trim() || undefined,
         }),
       });
@@ -546,15 +554,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 bg-grid text-slate-900">
-      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
         <header className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Static Ads Generator
             </h1>
             <p className="mt-2 max-w-xl text-slate-600">
-              6 Formate für Google & Meta – Hook und optionales Referenzbild,
-              die KI erstellt die Ads.
+              4 Ads (2× 9:16, 2× 1:1) – Hook, optional 3 USPs und Referenzbilder,
+              die KI erstellt die Anzeigen.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -594,7 +602,7 @@ export default function Home() {
                     <span className="font-medium text-slate-800">Medium</span> – Nur zur Einordnung; es werden immer 2× 9:16 und 2× 1:1 erstellt (Stories + Quadrat).
                   </li>
                   <li>
-                    <span className="font-medium text-slate-800">Ideen & USPs</span> – ChatGPT schlägt Hooks, Schlagzeilen und 3 USPs vor. Klick übernimmt. Optional: Referenz-Ad per Bild-URL analysieren und USPs extrahieren.
+                    <span className="font-medium text-slate-800">Ideen & USPs</span> – ChatGPT schlägt viele Hooks, Schlagzeilen und USPs vor. Beim USPs: im Abschnitt „Deine 3 USPs“ Slots 1–3 per Klick (→1, →2, →3) oder „Alle 3 übernehmen“ befüllen.
                   </li>
                   <li>
                     <span className="font-medium text-slate-800">Hook</span> – Der zentrale Werbesatz bzw. Aufhänger für die Anzeige. Wird an die Bild-KI übergeben und steuert Stimmung und Botschaft.
@@ -785,30 +793,9 @@ export default function Home() {
                         </ul>
                       </div>
                     )}
-                  {suggestResult.usps && suggestResult.usps.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium text-slate-500">
-                        USPs (für Feature-Zeile in Lifestyle-Ads)
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {suggestResult.usps.map((u, i) => (
-                          <span
-                            key={i}
-                            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-800"
-                          >
-                            {u}
-                          </span>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedUsps(suggestResult.usps ?? [])}
-                          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
-                        >
-                          Für Generierung nutzen
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <p className="mt-2 text-xs text-slate-500">
+                    USPs erscheinen im Abschnitt „Deine 3 USPs“ weiter unten – dort Slots 1–3 befüllen.
+                  </p>
                 </div>
               )}
 
@@ -879,12 +866,13 @@ export default function Home() {
                           ))}
                           <button
                             type="button"
-                            onClick={() =>
-                              setSelectedUsps(analyzeResult.extractedText?.usps ?? [])
-                            }
+                            onClick={() => {
+                              const list = analyzeResult.extractedText?.usps ?? [];
+                              setSelectedUsps([list[0] ?? "", list[1] ?? "", list[2] ?? ""]);
+                            }}
                             className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 hover:bg-indigo-200"
                           >
-                            USPs übernehmen
+                            In die 3 Slots übernehmen
                           </button>
                         </div>
                       </div>
@@ -908,6 +896,73 @@ export default function Home() {
                 rows={2}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
+            </div>
+
+            {/* Deine 3 USPs – klare Slots + Vorschläge zuweisbar */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5">
+              <h3 className="mb-1 text-sm font-semibold text-slate-800">
+                Deine 3 USPs für die Feature-Zeile
+              </h3>
+              <p className="mb-4 text-xs text-slate-500">
+                Bei Lifestyle-Ads erscheinen unten drei kurze Stichpunkte (z. B. „Schnelle Ergebnisse“, „Diskret & Sicher“). Hier die drei Texte eintragen oder aus den Vorschlägen unten in Slot 1, 2 oder 3 übernehmen.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {([0, 1, 2] as const).map((i) => (
+                  <div key={i}>
+                    <label className="mb-1 block text-xs font-medium text-slate-500">
+                      USP {i + 1}
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedUsps[i] ?? ""}
+                      onChange={(e) => setUspSlot(i, e.target.value)}
+                      placeholder={`z. B. ${i === 0 ? "Schnelle Ergebnisse" : i === 1 ? "Diskret & Sicher" : "Sichere Übermittlung"}`}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                ))}
+              </div>
+              {(suggestResult?.usps?.length || analyzeResult?.extractedText?.usps?.length) ? (
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <p className="mb-2 text-xs font-medium text-slate-600">
+                    Vorschläge – in Slot übernehmen
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(suggestResult?.usps ?? analyzeResult?.extractedText?.usps ?? []).map((u, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 shadow-sm"
+                      >
+                        {u}
+                        {([0, 1, 2] as const).map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setUspSlot(slot, u)}
+                            className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
+                          >
+                            →{slot + 1}
+                          </button>
+                        ))}
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const list = suggestResult?.usps ?? analyzeResult?.extractedText?.usps ?? [];
+                        setSelectedUsps([
+                          list[0] ?? "",
+                          list[1] ?? "",
+                          list[2] ?? "",
+                        ]);
+                      }}
+                      className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                    >
+                      Alle 3 übernehmen
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div>
@@ -951,19 +1006,17 @@ export default function Home() {
                   Lifestyle (Person, Platz für Headline und Features)
                 </option>
               </select>
-              {adStyle === "lifestyle" && selectedUsps.length >= 2 && (
+              {adStyle === "lifestyle" && selectedUsps.some(Boolean) && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2">
-                  <span className="text-xs font-medium text-indigo-800">
-                    USPs für Feature-Zeile:
-                  </span>
+                  <span className="text-xs font-medium text-indigo-800">Aktive USPs:</span>
                   {selectedUsps.slice(0, 3).map((u, i) => (
                     <span key={i} className="text-sm text-indigo-900">
-                      {u}
+                      {u || "—"}
                     </span>
                   ))}
                   <button
                     type="button"
-                    onClick={() => setSelectedUsps([])}
+                    onClick={() => setSelectedUsps(["", "", ""])}
                     className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
                   >
                     Zurücksetzen
