@@ -25,6 +25,13 @@ export async function POST(request: Request) {
       );
     }
 
+    let urlToUse = imageUrl.trim();
+    // Google-Drive-View-Links liefern HTML – Vision braucht die direkte Bild-URL
+    const driveMatch = urlToUse.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch) {
+      urlToUse = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+    }
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -47,7 +54,7 @@ export async function POST(request: Request) {
 }
 Erkennbare Texte (Headline, USPs) auf Deutsch extrahieren. USPs: genau 3 kurze Stichpunkte (2–4 Wörter), wie unten unter den Icons.`,
             },
-            { type: "image_url", image_url: { url: imageUrl.trim() } },
+            { type: "image_url", image_url: { url: urlToUse } },
           ],
         },
       ],
