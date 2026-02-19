@@ -973,7 +973,7 @@ export default function Home() {
             <>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Person in der Anzeige
+                Person in der Anzeige (optional)
               </label>
               <p className="mb-2 text-xs text-slate-500">
                 Optional: Eine Person oder ein Paar im Bild – passt z.B. zu
@@ -1037,13 +1037,13 @@ export default function Home() {
             <>
             <div>
               <p className="mb-4 text-sm text-slate-600">
-                Produktbild (optional) und bis zu 7 Ads als Stil-Inspiration. URLs in der Bibliothek speichern und hier auswählen oder eintippen.
+                Produktbild (optional) und bis zu 7 Ads als Stil-Inspiration (optional). URLs in der Bibliothek speichern und hier auswählen oder eintippen.
               </p>
             </div>
             {/* 1. Referenzbild deines Heimtests (Produktfoto / Verpackung) */}
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Referenzbild deines Heimtests
+                Referenzbild deines Heimtests (optional)
               </label>
               <p className="mb-3 text-xs text-slate-500">
                 Ein Bild, das euer Produkt zeigt (Verpackung, Kit, Produktfoto). Wird beim gewählten Heimtest aus dem Admin automatisch vorgeschlagen – hier überschreibbar.

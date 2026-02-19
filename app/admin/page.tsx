@@ -215,7 +215,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Shop-URL
+                Shop-URL (optional)
               </label>
               <input
                 type="url"
@@ -227,7 +227,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Beschreibung (für KI, Nutzen/Zielgruppe)
+                Beschreibung (für KI, Nutzen/Zielgruppe, optional)
               </label>
               <textarea
                 value={form.description}
@@ -238,7 +238,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Kit-Infos (für KI, z.B. Inhalt des Sets)
+                Kit-Infos (für KI, z.B. Inhalt des Sets, optional)
               </label>
               <textarea
                 value={form.kitInfo}
@@ -250,7 +250,7 @@ export default function AdminPage() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Standard-Referenzbild-URL
+                Standard-Referenzbild-URL (optional)
               </label>
               <input
                 type="url"

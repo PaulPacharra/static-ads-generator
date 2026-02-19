@@ -55,7 +55,6 @@ export async function POST(request: Request) {
   let productSlug = "Heimtest";
   let productDescription: string | null = null;
   let productKitInfo: string | null = null;
-  let productRefUrl: string | null = null;
 
   if (productId) {
     const product = await prisma.product.findUnique({ where: { id: productId } });
@@ -63,19 +62,18 @@ export async function POST(request: Request) {
       productSlug = product.slug;
       productDescription = product.description;
       productKitInfo = product.kitInfo;
-      if (product.referenceImageUrl?.trim()) productRefUrl = product.referenceImageUrl.trim();
     }
   } else if (productName?.trim()) {
     productSlug = productName.trim();
   }
 
-  // Alle Referenzbild-URLs sammeln (einzel + Array, max 8). Erst Request, dann Produkt.
+  // Alle Referenzbild-URLs aus dem Request sammeln (einzel + Array, max 8).
   const rawRefs = [
     referenceImageUrl?.trim(),
     ...(Array.isArray(referenceImageUrls) ? referenceImageUrls.map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean) : []),
   ].filter(Boolean) as string[];
   const uniqueRefs = [...new Set(rawRefs)];
-  const refsToUpload = productRefUrl && !uniqueRefs.length ? [productRefUrl] : uniqueRefs.slice(0, 8);
+  const refsToUpload = uniqueRefs.slice(0, 8);
 
   // Nano Banana Pro: image_input nur URLs von KIE File-Upload-API
   const refUrls: string[] = [];
